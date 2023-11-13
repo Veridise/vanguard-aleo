@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{RegistersLoad, RegistersLoadCircuit, StackMatches, StackProgram},
     Opcode,
@@ -29,6 +31,27 @@ pub enum CallOperator<N: Network> {
     Locator(Locator<N>),
     /// The reference to a local function or closure.
     Resource(Identifier<N>),
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network> CallOperator<N> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let j_vtype = match self {
+            CallOperator::Locator(locator) => "Locator",
+            CallOperator::Resource(resource) => "Resource",
+        };
+
+        let j_value = match self {
+            CallOperator::Locator(locator) => locator.to_json(),
+            CallOperator::Resource(resource) => resource.to_json(),
+        };
+
+        json!({
+            "type": "CallOperator",
+            "vtype": j_vtype,
+            "value": j_value,
+        })
+    }
 }
 
 impl<N: Network> Parser for CallOperator<N> {
@@ -118,6 +141,28 @@ pub struct Call<N: Network> {
     operands: Vec<Operand<N>>,
     /// The destination registers.
     destinations: Vec<Register<N>>,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network> Call<N> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        let mut j_destinations = Vec::new();
+        for val in &self.destinations {
+            j_destinations.push(val.to_json());
+        }
+
+        json!({
+            "type": "Call",
+            "operator": self.operator.to_json(),
+            "operands": j_operands,
+            "destinations": j_destinations,
+        })
+    }
 }
 
 impl<N: Network> Call<N> {

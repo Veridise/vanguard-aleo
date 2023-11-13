@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{RegistersLoad, RegistersLoadCircuit, RegistersStore, RegistersStoreCircuit, StackMatches, StackProgram},
     Opcode,
@@ -59,6 +61,23 @@ pub struct CommitInstruction<N: Network, const VARIANT: u8> {
     destination: Register<N>,
     /// The destination register type.
     destination_type: LiteralType,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        json!({
+            "type": "CommitInstruction",
+            "operands": j_operands,
+            "destination": self.destination.to_json(),
+            "destination_type": self.destination_type.to_json(),
+        })
+    }
 }
 
 impl<N: Network, const VARIANT: u8> CommitInstruction<N, VARIANT> {

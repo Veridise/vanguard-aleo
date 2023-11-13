@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{RegistersLoad, RegistersLoadCircuit, RegistersStore, RegistersStoreCircuit, StackMatches, StackProgram},
     Opcode,
@@ -40,6 +42,22 @@ pub struct Literals<N: Network, O: Operation<N, Literal<N>, LiteralType, NUM_OPE
     destination: Register<N>,
     /// PhantomData.
     _phantom: PhantomData<O>,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network, O: Operation<N, Literal<N>, LiteralType, NUM_OPERANDS>, const NUM_OPERANDS: usize> Literals<N, O, NUM_OPERANDS> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        json!({
+            "type": "Literals",
+            "operands": j_operands,
+            "destination": self.destination.to_json(),
+        })
+    }
 }
 
 impl<N: Network, O: Operation<N, Literal<N>, LiteralType, NUM_OPERANDS>, const NUM_OPERANDS: usize>

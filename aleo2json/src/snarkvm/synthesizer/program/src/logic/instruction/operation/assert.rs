@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{RegistersLoad, RegistersLoadCircuit, StackMatches, StackProgram},
     Opcode,
@@ -37,6 +39,21 @@ enum Variant {
 pub struct AssertInstruction<N: Network, const VARIANT: u8> {
     /// The operands.
     operands: Vec<Operand<N>>,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network, const VARIANT: u8> AssertInstruction<N, VARIANT> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        json!({
+            "type": "AssertInstruction",
+            "operands": j_operands,
+        })
+    }
 }
 
 impl<N: Network, const VARIANT: u8> AssertInstruction<N, VARIANT> {

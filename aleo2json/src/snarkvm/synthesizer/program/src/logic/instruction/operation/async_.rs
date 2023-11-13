@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{RegistersLoad, StackMatches, StackProgram},
     Opcode,
@@ -37,6 +39,23 @@ pub struct Async<N: Network> {
     operands: Vec<Operand<N>>,
     /// The destination register.
     destination: Register<N>,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network> Async<N> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        json!({
+            "type": "Async",
+            "function_name": self.function_name.to_json(),
+            "operands": j_operands,
+            "destination": self.destination.to_json(),
+        })
+    }
 }
 
 impl<N: Network> Async<N> {

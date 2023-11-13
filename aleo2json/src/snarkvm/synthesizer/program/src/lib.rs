@@ -106,6 +106,24 @@ enum ProgramDefinition {
     Function,
 }
 
+/// ** Vanguard JSON serialization helper ** ///
+impl ProgramDefinition {
+    pub fn to_json(&self) -> serde_json::Value {
+        let j_definition = match self {
+            ProgramDefinition::Mapping => "Mapping",
+            ProgramDefinition::Struct => "Struct",
+            ProgramDefinition::Record => "Record",
+            ProgramDefinition::Closure => "Closure",
+            ProgramDefinition::Function => "Function",
+        };
+
+        json!({
+            "type": "ProgramDefinition",
+            "definition": j_definition,
+        })
+    }
+}
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct ProgramCore<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> {
     /// The ID of the program.
@@ -160,6 +178,12 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
             j_imports.insert(key.to_key(), val.to_json());
         }
 
+        // collect identifiers
+        let mut j_identifiers: HashMap<String, serde_json::Value> = HashMap::new();
+        for (key, val) in &self.identifiers {
+            j_identifiers.insert(key.to_key(), val.to_json());
+        }
+
         // collect mappings
         let mut j_mappings: HashMap<String, serde_json::Value> = HashMap::new();
         for (key, val) in &self.mappings {
@@ -193,7 +217,7 @@ impl<N: Network, Instruction: InstructionTrait<N>, Command: CommandTrait<N>> Pro
         json!({
             "type": "ProgramCore",
             "id": self.id.to_json(),
-            "identifiers": "TBD",
+            "identifiers": j_identifiers,
             "imports": j_imports,
             "mappings": j_mappings,
             "structs": j_structs,

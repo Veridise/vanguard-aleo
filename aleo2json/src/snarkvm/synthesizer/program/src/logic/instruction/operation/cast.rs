@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use serde_json::json;
+
 use crate::{
     traits::{
         RegistersLoad,
@@ -58,6 +60,33 @@ pub enum CastType<N: Network> {
     Plaintext(PlaintextType<N>),
     Record(Identifier<N>),
     ExternalRecord(Locator<N>),
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network> CastType<N> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let j_vtype = match self {
+            Self::GroupXCoordinate => "GroupXCoordinate",
+            Self::GroupYCoordinate => "GroupYCoordinate",
+            CastType::Plaintext(plaintext_type) => "Plaintext",
+            CastType::Record(identifier) => "Record",
+            CastType::ExternalRecord(locator) => "ExternalRecord",
+        };
+
+        let j_value = match self {
+            Self::GroupXCoordinate => json!("group.x"),
+            Self::GroupYCoordinate => json!("group.x"),
+            CastType::Plaintext(plaintext_type) => plaintext_type.to_json(),
+            CastType::Record(identifier) => identifier.to_json(),
+            CastType::ExternalRecord(locator) => locator.to_json(),
+        };
+
+        json!({
+            "type": "CastType",
+            "vtype": j_vtype,
+            "value": j_value,
+        })
+    }
 }
 
 impl<N: Network> Parser for CastType<N> {
@@ -166,6 +195,23 @@ pub struct CastOperation<N: Network, const VARIANT: u8> {
     destination: Register<N>,
     /// The cast type.
     cast_type: CastType<N>,
+}
+
+/// ** Vanguard JSON serialization helper ** ///
+impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
+    pub fn to_json(&self) -> serde_json::Value {
+        let mut j_operands = Vec::new();
+        for val in &self.operands {
+            j_operands.push(val.to_json());
+        }
+
+        json!({
+            "type": "CastOperation",
+            "operands": j_operands,
+            "destination": self.destination.to_json(),
+            "cast_type": self.cast_type.to_json(),
+        })
+    }
 }
 
 impl<N: Network, const VARIANT: u8> CastOperation<N, VARIANT> {
