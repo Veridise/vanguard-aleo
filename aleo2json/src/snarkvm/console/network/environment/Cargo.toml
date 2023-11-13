@@ -1,0 +1,47 @@
+[package]
+name = "snarkvm-console-network-environment"
+version = "0.16.9"
+authors = [ "The Aleo Team <hello@aleo.org>" ]
+description = "Environment console library for a decentralized virtual machine"
+license = "Apache-2.0"
+edition = "2021"
+
+[dependencies.snarkvm-curves]
+path = "../../../curves"
+version = "=0.16.9"
+default-features = false
+
+[dependencies.snarkvm-fields]
+path = "../../../fields"
+version = "=0.16.9"
+default-features = false
+
+[dependencies.snarkvm-utilities]
+path = "../../../utilities"
+version = "=0.16.9"
+
+[dependencies.anyhow]
+version = "1.0.73"
+
+[dependencies.bech32]
+version = "0.9"
+
+[dependencies.itertools]
+version = "0.11.0"
+
+[dependencies.nom]
+version = "7.1"
+
+[dependencies.num-traits]
+version = "0.2"
+
+[dependencies.rand]
+version = "0.8"
+default-features = false
+
+[dependencies.serde]
+version = "1.0"
+
+[dependencies.zeroize]
+version = "1"
+features = [ "derive" ]

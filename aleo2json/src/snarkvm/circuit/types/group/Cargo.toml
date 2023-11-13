@@ -1,0 +1,37 @@
+[package]
+name = "snarkvm-circuit-types-group"
+version = "0.16.9"
+authors = [ "The Aleo Team <hello@aleo.org>" ]
+description = "Group circuit for a decentralized virtual machine"
+license = "Apache-2.0"
+edition = "2021"
+
+[dependencies.console]
+package = "snarkvm-console-types-group"
+path = "../../../console/types/group"
+version = "=0.16.9"
+optional = true
+
+[dependencies.snarkvm-circuit-environment]
+path = "../../environment"
+version = "=0.16.9"
+
+[dependencies.snarkvm-circuit-types-boolean]
+path = "../boolean"
+version = "=0.16.9"
+
+[dependencies.snarkvm-circuit-types-field]
+path = "../field"
+version = "=0.16.9"
+
+[dependencies.snarkvm-circuit-types-scalar]
+path = "../scalar"
+version = "=0.16.9"
+
+[dev-dependencies.snarkvm-utilities]
+path = "../../../utilities"
+default-features = false
+
+[features]
+default = [ "enable_console" ]
+enable_console = [ "console" ]
