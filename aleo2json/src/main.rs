@@ -9,7 +9,7 @@ fn parse(rawp: &str) -> Program::<CurrentNetwork> {
     match Program::<CurrentNetwork>::parse(rawp) {
         Ok((remain, program)) => {
             if remain.is_empty() {
-                println!("Good");
+                // println!("Good");
                 program
             } else {
                 panic!("Parser did not consume all of the string: '{remain}'");
@@ -39,5 +39,6 @@ fn main() {
     // println!("Json:\n{j}");
 
     let jj = program.to_json();
-    println!("Json:\n{jj}");
+    println!("{jj}\n");
+    // println!("Json:\n{jj}");
 }
