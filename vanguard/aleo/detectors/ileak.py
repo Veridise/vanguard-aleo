@@ -3,7 +3,7 @@ import networkx as nx
 from ..common import get_ifg_edges, get_public_inputs, get_public_outputs
 
 # `node` corresponds to a function, closure or finalize
-def detector_ileak(node):
+def detector_simple_ileak(node):
     assert "inputs" in node.keys(), f"Can't find \"inputs\" key in node"
     assert "outputs" in node.keys(), f"Can't find \"outputs\" key in node"
     assert "instructions" in node.keys(), f"Can't find \"instructions\" key in node"
