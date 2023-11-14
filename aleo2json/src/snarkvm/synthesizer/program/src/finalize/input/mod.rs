@@ -39,6 +39,7 @@ impl<N: Network> Input<N> {
             "type": "Input",
             "register": self.register.to_json(),
             "finalize_type": self.finalize_type.to_json(),
+            "str": format!("{}", self),
         })
     }
 }

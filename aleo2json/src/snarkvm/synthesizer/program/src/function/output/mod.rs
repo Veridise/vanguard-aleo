@@ -38,6 +38,7 @@ impl<N: Network> Output<N> {
             "type": "Output",
             "operand": self.operand.to_json(),
             "value_type": self.value_type.to_json(),
+            "str": format!("{}", self),
         })
     }
 }

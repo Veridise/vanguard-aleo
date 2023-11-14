@@ -536,6 +536,7 @@ impl<N: Network> InstructionTrait<N> for Instruction<N> {
             "type": "Instruction",
             "vtype": j_vtype,
             "value": j_value,
+            "str": format!("{}", self),
         })
     }
 

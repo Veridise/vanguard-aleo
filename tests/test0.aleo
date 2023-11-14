@@ -88,16 +88,29 @@ function ex_rtcnst0:
 
 function ex_leak0:
     input r0 as u8.public;
-    output r0 as u8.private;
+    output r0 as u8.public;
 
 
 function ex_leak1:
     input r0 as u8.public;
     hash.keccak256 1u8 into r1 as address;
-    output r1 as address.private;
+    output r1 as address.public;
 
 
 function ex_leak2:
     input r0 as i8.public;
     abs r0 into r1;
-    output r1 as i8.private;
+    output r1 as i8.public;
+
+
+function ex_leak3:
+    input r0 as u8.public;
+    add r0 3u8 into r1;
+    output r1 as u8.public;
+
+
+function ex_leak4:
+    input r0 as u8.public;
+    input r1 as u8.public;
+    add r0 r1 into r2;
+    output r2 as u8.public;
