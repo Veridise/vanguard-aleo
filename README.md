@@ -15,8 +15,9 @@ The following libraries are required for running (different components of) the t
 Running of Vanguard for Aleo relies on a compiler that converts Aleo programs into JSON, which allows the program to be further analyzed by various tools and extensions. It's adapted from Aleo's [snarkVM](https://github.com/AleoHQ/snarkVM/). To allow Vanguard to directly process Aleo programs, we recommend installing the compiler while testing out the tool via:
 
 ```bash
-cd vanguard/aleo2json/
-cargo install --path .
+git clone https://github.com/Veridise/aleo2json.git
+cd aleo2json/
+cargo install --path . --bin aleo2json
 ```
 
 To remove it in the future, simply do:
