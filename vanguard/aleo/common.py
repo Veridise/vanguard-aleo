@@ -33,43 +33,29 @@ def aleo2json(path: Union[str, Path]):
     out = run_command(cmd)
     return json.loads(out)
 
-def get_public_inputs(node):
-    assert "inputs" in node.keys(), f"Can't find \"inputs\" key in node"
+def assert_node_field(node, field, val=None):
+    assert field in node.keys(), f"Can't find filed {field} in node"
+    if val is not None:
+        assert node[field] == val, f"Mismatch of {field} of node, expected: {val}, got: {node[field]}"
 
-    pub_ins = []
-    for inst in node["inputs"]:
-        tokens = inst["str"].strip(";").split()
-        match tokens:
+def assert_range(value, range):
+    assert value in range, f"Value {value} is not in range {range}"
 
-            case ["input", r, "as", t] if t.endswith(".public"):
-                pub_ins.append(r)
-            # FIXME: add record tracking
-            case _:
-                pass
-    
-    return pub_ins
-
-def get_public_outputs(node):
-    assert "outputs" in node.keys(), f"Can't find \"outputs\" key in node"
-
-    pub_outs = []
-    for inst in node["outputs"]:
-        tokens = inst["str"].strip(";").split()
-        match tokens:
-
-            case ["output", r, "as", t] if t.endswith(".public"):
-                pub_outs.append(r)
-            # FIXME: add record tracking
-            case _:
-                pass
-    
-    return pub_outs
-
-def get_ifg_edges(node):
-    assert "instructions" in node.keys(), f"Can't find \"instructions\" key in node"
+def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
+    """Get information flow graph edges.
+    Args:
+      - prog: 
+      - func
+      - hash (default: False): whether to treat a hash function call directly as an edge
+      - call (default: False): whether to treat a call directly as an edge
+      - inline (default: False): whether to inline call invocations recursively to generate edges;
+        if `call` is True, this argument is then overridden and no inlining will take place.
+    Rets: A list of pairs of strings
+    """
+    node = prog.functions[func]
+    assert_node_field(node, "instructions")
 
     edges = []
-
     # process instructions
     for inst in node["instructions"]:
         tokens = inst["str"].strip(";").split()
@@ -93,9 +79,15 @@ def get_ifg_edges(node):
                 edges.append((o, r))
 
             case ["call", f, *os, "into", r]:
-                # for now we assume everything flows through
-                for o in os:
-                    edges.append((o, r))
+                if call:
+                    for o in os:
+                        edges.append((o, r))
+                elif inline:
+                    # TODO: add impl
+                    raise NotImplementedError
+                else:
+                    # no inline, no call, then no edge
+                    pass
 
             case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
                 # no edge in commitment computation
@@ -108,14 +100,20 @@ def get_ifg_edges(node):
             case [binop, o1, o2, "into", r]:
                 edges.append((o1, r))
                 edges.append((o2, r))
+            
             case [unop, o, "into", r]:
                 edges.append((o, r))
+            
             case [terop, o1, o2, o3, "into", r]:
                 edges.append((o1, r))
                 edges.append((o2, r))
                 edges.append((o3, r))
+
+            case ["cast", *os, "into", dst, "as", typ]:
+                for o in os:
+                    edges.append((o, dst))
             
             case _:
-                raise Exception(f"Unknown instruction pattern, got: {inst}")
+                raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
 
     return edges
