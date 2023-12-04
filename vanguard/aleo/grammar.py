@@ -193,14 +193,15 @@ class AleoProgram:
             tokens = inst["str"].strip(";").split()
             match tokens:
 
-                case [arg, r, "as", t] if t.endswith(".public") or t.endswith(".private"):
+                # visibility and status postfix
+                case [arg, r, "as", t] if t.endswith(".public") or t.endswith(".private") or t.endswith(".future"):
                     if t.endswith(f".{vis}"):
                         vars.append(r)
+                    # for cases that end with ".future", it's used as execution status of the "finalize" function
+                    # and this doesn't count as a regular output that can be queried in this function
 
+                # record type
                 case [arg, r, "as", t]:
-                    # FIXME: consider types in other imports and future
-                    #    ex: other.aleo/swap_exact_private_for_public.future
-                    # ts = t.split("/")[-1].split(".")
                     ts = t.split(".")
                     if len(ts) == 2:
                         if self.records[ts[0]]["owner"] == vis:
@@ -208,6 +209,7 @@ class AleoProgram:
                     else:
                         raise NotImplementedError(f"Unknown type, got: {t}")
                 
+                # others
                 case _:
                     raise NotImplementedError(f"Unknown input/output pattern, got: {inst['str']}")
         
