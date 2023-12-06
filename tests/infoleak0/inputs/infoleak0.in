@@ -1,0 +1,38 @@
+// The program input for infoleak0/src/main.leo
+[main]
+public a: u32 = 1u32;
+b: u32 = 2u32;
+
+[ex0]
+a: u8 = 0u8;
+
+[ex1]
+a: u8 = 0u8;
+
+[ex2]
+a: i8 = 1i8;
+
+[ex3]
+a: u8 = 1u8;
+
+[ex4]
+a: u8 = 1u8;
+b: u8 = 2u8;
+
+[ex5]
+a: u8 = 1u8;
+public b: u8 = 2u8;
+
+[ex6]
+a: u8 = 1u8;
+
+[ex7]
+a: u8 = 1u8;
+b: u8 = 2u8;
+
+[ex8]
+a: [bool; 2] = [true, true];
+
+[ex9]
+a: u8 = 2u8;
+b: u8 = 3u8;
