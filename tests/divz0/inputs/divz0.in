@@ -1,0 +1,18 @@
+// The program input for divz0/src/main.leo
+[main]
+public a: u32 = 1u32;
+b: u32 = 2u32;
+
+[ex2]
+b: u8 = 0u8;
+
+[ex4]
+b: u8 = 0u8;
+
+[ex6]
+a: u8 = 3u8;
+b: u8 = 0u8;
+
+[ex8]
+a: u8 = 9u8;
+b: u8 = 0u8;

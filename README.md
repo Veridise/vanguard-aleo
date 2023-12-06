@@ -68,3 +68,19 @@ if len(pub_outs)>0:
 ### APIs (Coming Soon)
 
 APIs are located in `vanguard/aleo/common.py` and `vanguard/aleo/detectors/*`, we are working on adding more of them as well as a documentation. Stay tuned!
+
+## Example Leo/Aleo Vulnerabilities
+
+You can find examples showing Leo/Aleo vulnerabilities with comments and annotations in projects in `tests/`:
+
+| Project     | Vulnerability Description               |
+| ----------- | --------------------------------------- |
+| divrd0/     | Division round-down/truncation (part 0) |
+| divz0/      | Division by zero (part 0)               |
+| downcast0/  | Division downcast (part 0)              |
+| infoleak0/  | Information leakage (part 0)            |
+| overflow0/  | Arithmetic overflow (part 0)            |
+| rtcnst0/    | Returning constant (part 0)             |
+| underflow0/ | Arithmetic underflow (part 0)           |
+| unused0/    | Unused variable/signal (part 0)         |
+
