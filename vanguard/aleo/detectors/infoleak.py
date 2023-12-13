@@ -2,14 +2,14 @@ import networkx as nx
 
 from ..common import get_ifg_edges
 
-def detector_simple_infoleak(prog, func):
-    """Detect for information leak in a simplified way
+def detector_infoleak(prog, func):
+    """Detect for information leak
     Args:
       - prog:
       - func:
     Rets: (result, info)
     """
-    # FIXME: correct the assumption when impl is ready
+
     edges = get_ifg_edges(prog, func, hash=False, call=True, inline=False)
     prv_inps = prog.get_function_arguments(func, "private", "inputs")
     pub_outs = prog.get_function_arguments(func, "public", "outputs")
