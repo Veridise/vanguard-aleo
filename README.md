@@ -55,19 +55,27 @@ pip uninstall vanguard
 You can write detectors by simply utilizing some functions provided by the analyzer. Here's an example that analyze and get all public outputs/signals from a given Aleo program:
 
 ```python
-from vanguard.aleo.common import aleo2json, get_public_outputs
+from vanguard.aleo.common import aleo2json
+from vanguard.aleo.detectors.divz import detector_divz
 
 aleo_path = ...
 aleo_json = aleo2json(aleo_path)
 
-pub_outs = get_public_outputs(aleo_json["functions"]["main"])
-if len(pub_outs)>0:
-  print(f"There are public outputs: {pub_outs}.")
+out, info = detector_divz(ap, "main")
 ```
 
-### APIs (Coming Soon)
+## Detectors Available
 
-APIs are located in `vanguard/aleo/common.py` and `vanguard/aleo/detectors/*`, we are working on adding more of them as well as a documentation. Stay tuned!
+```python
+from vanguard.aleo.detectors.infoleak import detector_infoleak
+from vanguard.aleo.detectors.rtcnst import detector_rtcnst
+from vanguard.aleo.detectors.unused import detector_unused
+from vanguard.aleo.detectors.divz import detector_divz
+
+...
+```
+
+(more coming soon...)
 
 ## Example Leo/Aleo Vulnerabilities
 

@@ -41,6 +41,11 @@ def assert_node_field(node, field, val=None):
 def assert_range(value, range):
     assert value in range, f"Value {value} is not in range {range}"
 
+def trim_inst(inst: str):
+    # remove space in "; " in array literals
+    # remove tailing semi-colon ";"
+    return inst.replace("; ", ";").strip(";")
+
 def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
     """Get information flow graph edges.
     Args:
@@ -58,7 +63,7 @@ def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
     edges = []
     # process instructions
     for inst in node["instructions"] + node["outputs"]:
-        tokens = inst["str"].strip(";").split()
+        tokens = trim_inst(inst["str"]).split()
         match tokens:
 
             case ["is.eq", o1, o2, "into", r]:
@@ -113,6 +118,10 @@ def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
                 for o in os:
                     edges.append((o, dst))
             
+            case ["output", o, "as", typ]:
+                # no edge in output command
+                pass
+
             case _:
                 raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
 
@@ -131,7 +140,7 @@ def get_dfg_edges(prog, func):
     edges = []
     # process instructions
     for inst in node["instructions"]:
-        tokens = inst["str"].strip(";").split()
+        tokens = trim_inst(inst["str"]).split()
         match tokens:
 
             case ["is.eq", o1, o2, "into", r]:
@@ -178,6 +187,10 @@ def get_dfg_edges(prog, func):
             case ["cast", *os, "into", dst, "as", typ]:
                 for o in os:
                     edges.append((o, dst))
+
+            case ["output", o, "as", typ]:
+                # no edge in output command
+                pass
             
             case _:
                 raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")

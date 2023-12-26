@@ -1,4 +1,4 @@
-from .common import assert_range
+from .common import assert_range, trim_inst
 
 class AleoProgram:
     """A virtual machine that prepare Aleo program for future use and provides common functionalities
@@ -185,23 +185,24 @@ class AleoProgram:
         """
         assert_range(func, self.functions.keys())
         assert_range(arg, set(["inputs", "outputs"]))
+        argkw = arg[:-1] # input/output
         assert_range(vis, set(["private", "public"]))
 
         node = self.functions[func]
         vars = []
         for inst in node[arg]:
-            tokens = inst["str"].strip(";").split()
+            tokens = trim_inst(inst["str"]).split()
             match tokens:
 
                 # visibility and status postfix
-                case [arg, r, "as", t] if t.endswith(".public") or t.endswith(".private") or t.endswith(".future"):
+                case [kw, r, "as", t] if kw == argkw and (t.endswith(".public") or t.endswith(".private") or t.endswith(".future")):
                     if t.endswith(f".{vis}"):
                         vars.append(r)
                     # for cases that end with ".future", it's used as execution status of the "finalize" function
                     # and this doesn't count as a regular output that can be queried in this function
 
                 # record type
-                case [arg, r, "as", t]:
+                case [kw, r, "as", t] if kw == argkw:
                     ts = t.split(".")
                     if len(ts) == 2:
                         if self.records[ts[0]]["owner"] == vis:
