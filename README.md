@@ -23,7 +23,7 @@ cargo install --path . --bin aleo2json
 To remove it in the future, simply do:
 
 ```bash
-cargo uninstall aleo2json
+cargo uninstall -p snarkvm --bin aleo2json
 ```
 
 ### Usage
