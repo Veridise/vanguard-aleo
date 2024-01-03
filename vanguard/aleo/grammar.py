@@ -203,12 +203,17 @@ class AleoProgram:
 
                 # record type
                 case [kw, r, "as", t] if kw == argkw:
-                    ts = t.split(".")
-                    if len(ts) == 2:
-                        if self.records[ts[0]]["owner"] == vis:
-                            vars.append(r)
+                    if "/" in t:
+                        # external type
+                        # FIXME: ignored for now
+                        pass
                     else:
-                        raise NotImplementedError(f"Unknown type, got: {t}")
+                        ts = t.split(".")
+                        if len(ts) == 2:
+                            if self.records[ts[0]]["owner"] == vis:
+                                vars.append(r)
+                        else:
+                            raise NotImplementedError(f"Unknown type, got: {t}")
                 
                 # others
                 case _:

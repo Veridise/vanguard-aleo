@@ -83,10 +83,36 @@ def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
             case ["cast", o, "into", r, "as", d]:
                 edges.append((o, r))
 
-            case ["call", f, *os, "into", r]:
+            case ["call", *ts]:
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
                 if call:
                     for o in os:
-                        edges.append((o, r))
+                        for r in rs:
+                            # overapproximated edges from every o to every r
+                            edges.append((o, r))
+                elif inline:
+                    # TODO: add impl
+                    raise NotImplementedError
+                else:
+                    # no inline, no call, then no edge
+                    pass
+            
+            case ["async", *ts]:
+                # FIXME: can't find official documentation for now, treated as call
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                if call:
+                    for o in os:
+                        for r in rs:
+                            # overapproximated edges from every o to every r
+                            edges.append((o, r))
                 elif inline:
                     # TODO: add impl
                     raise NotImplementedError
@@ -159,11 +185,31 @@ def get_dfg_edges(prog, func):
 
             case ["cast", o, "into", r, "as", d]:
                 edges.append((o, r))
-
-            case ["call", f, *os, "into", r]:
+            
+            case ["call", *ts]:
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
                 # no inlining, just add edge from this level
                 for o in os:
-                    edges.append((o, r))
+                    for r in rs:
+                        # overapproximated edges from every o to every r
+                        edges.append((o, r))
+
+            case ["async", *ts]:
+                # FIXME: can't find official documentation for now, treated as call
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                # no inlining, just add edge from this level
+                for o in os:
+                    for r in rs:
+                        # overapproximated edges from every o to every r
+                        edges.append((o, r))
 
             case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
                 edges.append((o1, r))
