@@ -36,3 +36,11 @@ a: [bool; 2] = [true, true];
 [ex9]
 a: u8 = 2u8;
 b: u8 = 3u8;
+
+[ex10]
+a: u8 = 9u8;
+b: u8 = 0u8;
+
+[ex11]
+a: u8 = 9u8;
+b: u8 = 0u8;

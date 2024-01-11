@@ -1,10 +1,12 @@
 // The 'divz0' program.
 program divz0.aleo {
-    transition vanguard_helper() -> [bool; 9] {
+    // by default, arguments without visibility are private
+    // but in finalize, they have to be public
+    transition vanguard_helper() -> [bool; 12] {
         return [
             label_ex0, label_ex1, label_ex2, label_ex3,
             label_ex4, label_ex5, label_ex6, label_ex7,
-            label_ex8,
+            label_ex8, label_ex9, label_ex10, label_ex11,
         ];
     }
 
@@ -87,14 +89,47 @@ program divz0.aleo {
         return c;
     }
 
-    // compilable, runnable (FIXME: why runnable)
+    // compilable, runnable
     // label: bad
     const label_ex8: bool = true;
-    mapping account_divz8: u8 => u8;
+    mapping account_ex8: u8 => u8;
     transition ex8(a: u8, b: u8) -> u8 {
-        return a+b then finalize (a, b);
+        return a+b then finalize(a, b);
     }
     finalize ex8(x: u8, y: u8) {
-        Mapping::set(account_divz8, x+y, x/y);
+        Mapping::set(account_ex8, x+y, x/y);
+    }
+
+    // compilable, runnable
+    // label: good
+    const label_ex9: bool = false;
+    mapping account_ex9: u8 => u8;
+    transition ex9(a: u8, b: u8) -> u8 {
+        return a+b then finalize(a, b);
+    }
+    finalize ex9(x: u8, y: u8) {
+        Mapping::set(account_ex9, x+y, x*y);
+    }
+
+    // compilable, runnable
+    // label: good
+    const label_ex10: bool = false;
+    transition ex10() -> u8 {
+        let a: u8 = 255u8;
+        let c: u8 = a.div(5u8);
+        return c;
+    }
+
+    // compilable, exception at runtime
+    // label: bad
+    const label_ex11: bool = true;
+    transition ex11() -> u8 {
+        let a: u8 = 225u8;
+        let b: u8 = 0u8;
+        let c: u8 = helper_ex11(a, b);
+        return c;
+    }
+    function helper_ex11(a: u8, b: u8) -> u8 {
+        return a/b;
     }
 }

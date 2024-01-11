@@ -2,3 +2,9 @@
 [main]
 public a: u32 = 1u32;
 b: u32 = 2u32;
+
+[ex3]
+a: u8 = 15u8;
+
+[ex5]
+a: u8 = 15u8;

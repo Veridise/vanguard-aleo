@@ -1,10 +1,10 @@
 // The 'infoleak0' program.
 program infoleak0.aleo {
-    transition vanguard_helper() -> [bool; 10] {
+    transition vanguard_helper() -> [bool; 12] {
         return [
             label_ex0, label_ex1, label_ex2, label_ex3,
             label_ex4, label_ex5, label_ex6, label_ex7,
-            label_ex8, label_ex9,
+            label_ex8, label_ex9, label_ex10, label_ex11,
         ];
     }
 
@@ -105,5 +105,24 @@ program infoleak0.aleo {
         let a2: u8 = (b + 8u8) * b;
         let c: u8 = a1 + a2;
         return c;
+    }
+
+    // compilable, runnable 
+    // label: bad
+    const label_ex10: bool = true;
+    mapping account_ex10: u8 => u8;
+    transition ex10(a: u8, b: u8) -> u8 {
+        return a+b then finalize(a, b);
+    }
+    finalize ex10(public x: u8, public y: u8) {
+        Mapping::set(account_ex10, x+y, x/y);
+    }
+
+    // compilable, runnable 
+    // label: good
+    const label_ex11: bool = false;
+    mapping account_ex11: u8 => u8;
+    transition ex11(private a: u8, private b: u8) -> public u8 {
+        return a+b;
     }
 }
