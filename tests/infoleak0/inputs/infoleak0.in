@@ -44,3 +44,45 @@ b: u8 = 0u8;
 [ex11]
 a: u8 = 9u8;
 b: u8 = 0u8;
+
+[ex12]
+a: address = aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4;
+
+[ex13]
+a: address = aleo1ezamst4pjgj9zfxqq0fwfj8a4cjuqndmasgata3hggzqygggnyfq6kmyd4;
+
+[ex14]
+a: u8 = 9u8;
+
+[ex15]
+a: u16 = 9u16;
+
+[ex16]
+a: u8 = 7u8;
+
+[ex17]
+a: u8 = 7u8;
+
+[ex18]
+a: u8 = 7u8;
+
+[ex19]
+a: struct_ex19 = struct_ex19 { a: 0u8, b: 1u8 };
+
+[ex20]
+a: struct_ex20 = struct_ex20 { a: 0u8, b: 1u8 };
+
+[ex21]
+a: struct_ex21 = struct_ex21 { a: 0u8, b: 1u8 };
+
+[ex22]
+a: struct_ex22_box = struct_ex22_box {
+    content: struct_ex22 { a: 7u8, b: 9u8 }
+};
+
+[ex23]
+a: rec_ex23 = rec_ex23 {
+    owner: aleo15g9c69urtdhvfml0vjl8px07txmxsy454urhgzk57szmcuttpqgq5cvcdy,
+    data: 9u8,
+    _nonce: 2060200498923437084193457963221185328668004873740843633092432118090229616287group,
+};
