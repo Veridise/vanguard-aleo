@@ -1,8 +1,0 @@
-// The program input for underflow0/src/main.leo
-[main]
-public a: u32 = 1u32;
-b: u32 = 2u32;
-
-[ex1]
-a: u8 = 0u8;
-b: u8 = 1u8;

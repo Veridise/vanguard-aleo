@@ -9,6 +9,7 @@ The following libraries are required for running (different components of) the t
 - Rust (1.73+) for running `aleo2json`
 - Python (3.10+) for running Vanguard and its Aleo detectors
   - [NetworkX](https://networkx.org/documentation/stable/install.html) (2.8.4+) for speeding up graph reachability in detectors
+- <u>Leo (**7ac50d8**) for compiling and running all benchmarks enclosed</u>
 
 ## The Aleo to JSON Compiler
 
