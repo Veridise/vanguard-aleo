@@ -6,6 +6,7 @@ import shlex
 import shutil
 import json
 import os
+import re
 
 from pathlib import Path
 from typing import List, Union
@@ -45,6 +46,39 @@ def trim_inst(inst: str):
     # remove space in "; " in array literals
     # remove tailing semi-colon ";"
     return inst.replace("; ", ";").strip(";")
+
+def parse_instance(v: str):
+    # parse register/constants
+    # returns a tuple (type, parsed_value)
+    # NOTE: some values are parsed but some are not, 
+    #       based on convenience of computation
+
+    if v == "true":
+        return ("boolean", True)
+    elif v == "false":
+        return ("boolean", False)
+    elif v.startswith("r"):
+        # register
+        return ("register", v)
+    elif v.startswith("aleo1"):
+        # address constant
+        return ("address", v)
+    elif "[" in v and "]" in v:
+        # mapping access
+        r = re.match( r"^(.*?)\[(.*?)\]$", v )
+        identifier = r.group(1)
+        operand = r.group(2)
+        return ("mapping", identifier, operand)
+    else:
+        ts = [
+            "u128", "u64", "u32", "u16", "u8",
+            "i128", "i64", "i32", "i16", "i8",
+            "field", "group", "scalar"
+        ]
+        for p in ts:
+            if v.endswith(p):
+                return (p, int(v[:len(p)-1]))
+        raise NotImplementedError(f"Unsupported instance: {v}")
 
 def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
     """Get information flow graph edges.

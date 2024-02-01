@@ -155,6 +155,19 @@ class AleoProgram:
                     "entries": entries,
                 }
             
+            # rename finalize `commands` to `instructions`
+            case {
+                "type": "FinalizeCore",
+                "commands": entries,
+                **rest,
+            }:
+                return {
+                    "type": "FinalizeCore",
+                    # directly extract the instruction part
+                    "instructions": [ {**e["value"], **{"str":e["str"]}} for e in entries ],
+                    **rest,
+                }
+            
             # default: no simplification
             case _:
                 return node

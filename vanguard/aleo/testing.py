@@ -1,5 +1,6 @@
 import requests
 import time
+import json
 
 from bs4 import BeautifulSoup
 
@@ -78,3 +79,46 @@ def crawl_from_haruka_explorer(istart, iend, folder):
             
             print("done")
             time.sleep(2)
+
+def crawl_from_aleo_explorer(folder):
+    url = "https://api.explorer.aleo.org/v1/testnet3/explorer/programs"
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9',
+        # 'Accept-Encoding': 'gzip, deflate, br'
+    }
+    res0 = requests.get(url, headers=headers)
+    res0.raise_for_status()
+    js0 = json.loads(res0.text)
+    # ok this API returns ALL info (including src) of programs
+    for p in js0:
+        # write to folder
+        print(f"# Writing {p["id"]} ...")
+        with open(f"{folder}/{p["id"]}", "w") as f:
+            f.write(p["program"])
+
+    # soup0 = BeautifulSoup(res0.text, 'html.parser')
+    # rows = soup0.find_all("div", class_="ShortHash")
+    # for r in rows:
+    #     fname = r.a.string
+    #     furl = "https://explorer.aleo.org{}".format(r.a["href"])
+    #     print(f"# Fetching: file={fname}, url={furl} ...", end="")
+    #     # fetch program itself
+    #     try:
+    #         res1 = requests.get(furl, headers=headers)
+    #         res1.raise_for_status()
+    #     except:
+    #         print("skip for exception")
+    #         continue
+
+    #     soup1 = BeautifulSoup(res1.text, 'html.parser')
+    #     src = soup1.find("div", class_="ant-typography")
+    #     raw = src.pre.string
+
+    #     # write to folder
+    #     with open(f"{folder}/{fname}", "w") as f:
+    #         f.write(raw)
+
+    #     print("done")
+    #     time.sleep(100)
