@@ -1,33 +1,7 @@
-import networkx as nx
-
 from enum import Enum
+from collections import defaultdict
 
-from ..grammar import AleoProgram
-from ..common import parse_instance
-
-def detector_divz(prog: AleoProgram, func: str):
-    """Detect for division by zero
-    Args:
-      - prog (AleoProgram):
-      - func (str):
-    Rets: (result, info)
-    """
-
-    lines = []
-    # process output instructions
-    for inst in prog.functions[func]["instructions"]:
-        tokens = inst["str"].strip(";").split()
-        match tokens:
-
-            case ["div", v0, v1, "into", r]:
-                if v1.startswith("0u"):
-                    lines.append(inst["str"])
-
-            case _:
-                # fine for other cases
-                pass
-    
-    return (len(lines)>0, lines)
+from ..grammar import AleoProgram, AleoEnvironment
 
 class Dom(Enum):
     # abstract domain
@@ -53,63 +27,32 @@ class Val:
     ALLBOOL = {Dom.FALSE, Dom.TRUE}
 
     BOT = set() # exception status
-
+    
 def fabs(v):
     if isinstance(v, bool):
-        # bool
-        if v == True:
-            return {Dom.TRUE}
-        else:
-            return {Dom.FALSE}
+        return {Dom.TRUE} if v else {Dom.FALSE}
     elif isinstance(v, int):
-        # integers
         if v == 0:
             return {Dom.ZERO}
-        elif v < 0:
-            return {Dom.NEG}
         else:
-            return {Dom.POS}
+            return {Dom.POS} if v > 0 else {Dom.NEG}
     elif isinstance(v, str):
-        # address
         return Val.BOT
     else:
         raise NotImplementedError(f"Unsupported type for abstraction, got: {v}")
     
-def pget(mem, pid, env, path):
-    # fetch variable from environment
-    # if it's a literal, then convert to abstract value
-    # otherwise, fetch directly from program's mem or function's env
-    target = parse_instance(path)
-    match target[0]:
-        case "register":
-            return env[target[1]]
-        case "mapping":
-            id = target[1][0]
-            ac = target[1][1]
-            ac_0 = pget(mem, pid, env, ac) # recursive, as operand can also be a path
-            return mem[pid][id][ac_0]
-        case "u128" | "u64" | "u32" | "u16" | "u8" | \
-             "i128" | "i64" | "i32" | "i16" | "i8" | \
-             "field" | "group" | "scalar" | "bool" | \
-             "address":
-            return fabs(target[1])
-        case _:
-            raise NotImplementedError(f"Unsupported path type for pget, got: {target}")
-
-def pset(mem, pid, env, path, v):
-    # set value
-    target = parse_instance(path)
-    match target[0]:
-        case "register":
-            env[target[1]] = v
-        case "mapping":
-            id = target[1][0]
-            ac = target[1][1]
-            ac_0 = pget(mem, pid, env, ac) # recursive, as operand can also be a path
-            mem[pid][id][ac_0] = v
-        case _:
-            raise NotImplementedError(f"Unsupported path type for pset, got: {target}")
-        
+def cast2int(v):
+    # invalid cast
+    if (Dom.FALSE not in v) and (Dom.TRUE not in v) and len(v) > 0:
+        return Val.BOT
+    
+    r = set()
+    if Dom.FALSE in v:
+        r.add(Dom.ZERO)
+    if Dom.TRUE in v:
+        r.add(Dom.POS)
+    return r
+    
 def generate_absop(ltab):
     # ltab: look-up table
     # construct function
@@ -164,141 +107,193 @@ class AbsOp:
         Dom.POS:  { Dom.NEG: {Dom.FALSE}, Dom.ZERO: {Dom.FALSE}, Dom.POS: Val.ALLBOOL },
     })
 
-def detector_divz_new(prog: AleoProgram, func:str):
+def detector_divz(env: AleoEnvironment, pid: str, fid: str):
 
     # store problematic instructions
     lines = []
 
-    # memory/storage for storing program-wise structures, e.g., mapping
-    # needs a program name as key, separate between different programs
-    mem = {}
+    # create linked visitor
+    def visitor(pid: str, fid: str, inps: list, finalize=False):
+        """Visit a program's function with inputs
+        Arguments:
+        - pid (str): id of program to visit
+        - fid (str): id of function/closure to visit
+        - inps (list): inputs to function
+        - finalize (bool): whether or not to visit the finalize block instead
+        """
+        # load function
+        pr = env.programs[pid]
+        fn = None
+        if fid in pr.functions.keys():
+            if finalize:
+                fn = pr.functions[fid]["finalize"]
+            else:
+                fn = pr.functions[fid]
+        else:
+            assert not finalize, f"Closure {fid} doesn't have a finalize block"
+            fn = pr.closures[fid]
+        assert len(inps) == len(fn["inputs"]), f"Numbers of arguments mismatch, expected: {len(fn["inputs"])}, got: {len(inps)}"
 
-    def visitor(pid, f, inps):
-        # load inputs, purely positional
-        assert len(f["inputs"]) == len(inps), f"Numbers of argument mismatch calling {f['name']}, expected {len(f['inputs'])}, got {len(inps)}"
-        env = {
-            f"r{f['inputs'][i]['register']['value']}" : inps[i]
-            for i in range(len(f["inputs"]))
+        # create local context
+        # SYNTAX: function input is always register
+        ctx = {
+            fn["inputs"][i][0] : inps[i]
+            for i in range(len(inps))
         }
 
-        # interpretation
-        for inst in f["instructions"]:
-            print(f"# [debug] executing: {inst["str"]}")
-            tokens = inst["str"].strip(";").split()
-            match tokens:
+        # interpret
+        for inst in fn["instructions"]:
+            print(f"# [debug] inst: {inst}")
+            match inst:
 
-                # special abstract interpretation with detection
-                case [op, v0, v1, "into", r0] if op in ["div", "div.w"]:
-                    # parse
-                    pv0 = pget(mem, pid, env, v0)
-                    pv1 = pget(mem, pid, env, v1)
+                # special instruction that triggers the detector
+                case [op, d0, d1, r0] if op in {"div", "div.w"}:
+                    # get
+                    pd0, pd1 = env.rget(pid, d0, ctx=ctx, vfn=fabs), env.rget(pid, d1, ctx=ctx, vfn=fabs)
                     # detect
-                    if Dom.ZERO in pv1:
-                        lines.append(inst["str"])
-                    # compute
-                    cr0 = AbsOp.DIV(pv0, pv1)
+                    if Dom.ZERO in pd1:
+                        lines.append(inst)
+                    # compute, both sharing DIV abstract op
+                    pr0 = AbsOp.DIV(pd0, pd1)
                     # set
-                    pset(mem, pid, env, r0, cr0)
+                    env.rset(pid, r0, pr0, ctx=ctx)
 
-                # regular abstract interpretation
-                case [op, v0, v1, "into", r0] if op in \
-                     {"add", "mul", "is.neq", "is.eq", "gte"}:
-                    # parse
-                    pv0 = pget(mem, pid, env, v0)
-                    pv1 = pget(mem, pid, env, v1)
+                # regular instruction
+                case [op, d0, d1, r0] if op in \
+                    {"is.neq", "is.eq", "add", "mul"}:
+                    # get
+                    pd0, pd1 = env.rget(pid, d0, ctx=ctx, vfn=fabs), env.rget(pid, d1, ctx=ctx, vfn=fabs)
                     # compute
                     OP = op.replace(".", "").upper()
-                    cr0 = getattr(AbsOp, OP)(pv0, pv1)
+                    pr0 = getattr(AbsOp, OP)(pd0, pd1)
                     # set
-                    pset(mem, pid, env, r0, cr0)
+                    env.rset(pid, r0, pr0, ctx=ctx)
 
-                case ["ternary", v0, v1, v2, "into", r0]:
-                    # parse
-                    pv0 = pget(mem, pid, env, v0)
-                    pv1 = pget(mem, pid, env, v1)
-                    pv2 = pget(mem, pid, env, v2)
+                case ["ternary", d0, d1, d2, r0]:
+                    # get
+                    pd0 = env.rget(pid, d0, ctx=ctx, vfn=fabs)
+                    pd1 = env.rget(pid, d1, ctx=ctx, vfn=fabs)
+                    pd2 = env.rget(pid, d2, ctx=ctx, vfn=fabs)
                     # compute
-                    cr0 = set()
-                    if Dom.TRUE in pv0:
-                        cr0.update(pv1)
-                    if Dom.FALSE in pv0:
-                        cr0.update(pv2)
+                    pr0 = set()
+                    if Dom.TRUE in pd0:
+                        pr0.update(pd1)
+                    if Dom.FALSE in pd0:
+                        pr0.update(pd2)
                     # set
-                        pset(mem, pid, env, r0, cr0)
-
-                case ["assert.eq", v0, v1]:
-                    # no env change, skip for simplicity
+                    env.rset(pid, r0, pr0, ctx=ctx)
+                
+                # skipped instruction
+                case ["assert.eq", *vs]:
+                    # no ctx change, skip for simplicity
                     pass
 
-                case ["call", *ts]:
+                case ["call", *vs]:
                     # extract call components
-                    idx_into = tokens.index("into")
-                    fn = tokens[1]
-                    vs = tokens[2:idx_into]
-                    rs = tokens[idx_into+1:]
+                    idx_into = inst.index("into")
+                    l0 = inst[1]
+                    ds = inst[2:idx_into]
+                    rs = inst[idx_into+1:]
                     # collect parameters
-                    params = [ pget(mem, pid, env, v) for v in vs ]
+                    params = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
+                    # locate function
+                    p, f = env.locate_fc(pid, l0)
                     # dispatch
-                    outs = visitor(pid, prog.closures[fn], params)
-                    # load outputs back to env
-                    assert len(outs) == len(rs), f"Mismatch lengths of return, expected: {len(rs)}, got: {len(outs)}"
+                    outs = visitor(p, f, params)
+                    # update ctx
+                    assert len(outs) == len(rs), f"Lengths mismatch of return, expected: {len(rs)}, got: {len(outs)}"
                     for r, o in zip(rs, outs):
-                        pset(mem, pid, env, r, o)
-                
-                case ["async", fn, *vs, "into", r0]:
-                    # async (Aleo) is finalize (Leo)
-                    assert fn == f["name"], f"Call of async need to have the same name, expected: {f["name"]}, got: {fn}"
-                    assert "finalize_logic" in f.keys(), f"Function {f["name"]} doesn't have a finalize block"
+                        env.rset(pid, r, o, ctx=ctx)
+
+                case ["async", l0, *ds, r0]:
+                    # async in Aleo is finalize in Leo
+                    assert l0 == fid, f"Async id does not match function id, expected: {fid}, got: {l0}"
                     # collect parameters
-                    params = [ pget(mem, pid, env, v) for v in vs ]
-                    # dispatch
-                    outs = visitor(pid, f["finalize_logic"], params)
-                    assert len(outs) == 1, f"Finalize must only return one single status, got: {len(outs)}"
-                    # load outputs back to env
-                    pset(mem, pid, env, r0, outs[0])
+                    params = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
+                    # locate function
+                    p, f = env.locate_fc(pid, l0)
+                    # dispatch to finalize function
+                    outs = visitor(p, f, params, finalize=True)
+                    assert len(outs) == 1, f"Length of async return is always one, got: {len(outs)}"
+                    # update ctx
+                    env.rset(pid, r0, outs[0], ctx=ctx)
 
-                case ["set", v, "into", r]:
+                case ["set", d0, m0, d1]:
+                    # set d0 into m0[d1]
+                    # SYNTAX: m0 is identifier of mapping
+                    # set all, as d1 may be abstract already
+                    # so here we collect all possible values
+                    # and set the mapping as defaultdict
+                    pd0 = env.rget(pid, d0, ctx=ctx, vfn=fabs)
+                    # collect all possible values
+                    pm0 = env.rget(pid, m0, ctx=None) # mapping, don't apply fabs
+                    ss = set(pm0.values()) | pd0 # merge existing
+                    # set mapping as defaultdict
+                    pr.mem[m0] = defaultdict(lambda: ss)
+
+                case ["cast", *ds, "into", r0, "as", dest0]:
+                    # get
+                    pds = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
+                    # analyze cast destination
+                    it = None
+                    match dest0:
+                        case s if isinstance(s, str):
+                            # identifier as type, usually struct or record
+                            # FIXME: find struct first, then records
+                            if s in pr.struct_constructors.keys():
+                                it = pr.struct_constructors[s](*pds)
+                            elif s in pr.record_constructors.keys():
+                                it = pr.record_constructors[s](*pds)
+                            else:
+                                raise Exception(f"Can't locate struct/record, got: {s}")
+                        case ["register_type", t0, p0]:
+                            # SYNTAX: p0 can be .future or .record
+                            # FIXME: ignore modifier p0
+                            # FIXME: find struct first, then records
+                            if t0 in pr.struct_constructors.keys():
+                                it = pr.struct_constructors[t0](*pds)
+                            elif t0 in pr.record_constructors.keys():
+                                it = pr.record_constructors[t0](*pds)
+                            else:
+                                raise Exception(f"Can't locate struct/record, got: {t0}")
+                        case ["array_type", t0, shape0]:
+                            assert len(shape0) == 1, f"Only 1-d array destination is supported for now, got: {dest0}"
+                            assert len(pds) == shape0[0], f"Mismatch with array length, expected: {shape0[0]}, got: {len(pds)}"
+                            it = pds # pds is a list/array already
+                        case ["unsigned_type", t0]:
+                            # cast to number
+                            assert len(ds) == 1, f"{t0} type can only have 1 operand, got: {len(ds)}"
+                            it = cast2int(pds[0])
+                        # FIXME: add more patterns
+                        case _:
+                            raise NotImplementedError(f"Unsupported cast destination, got: {dest0}")
                     # set
-                    pset(mem, pid, env, v, r)
+                    env.rset(pid, r0, it, ctx=ctx)
 
+                case ["random.chacha", *ds, r0, t0]:
+                    # overapproximate
+                    env.rset(pid, r0, Val.ALLINT, ctx=ctx)
+                
                 case _:
-                    raise NotImplementedError(f"Unsupported instruction: {inst['str']}")
+                    raise NotImplementedError(f"Unsupported instruction, got: {inst}")
         
-        # get returning registers and return
-        if f["type"] == "FunctionCore" or f["type"] == "ClosureCore":
-            # outs = [
-            #     env[f"r{p['operand']['value']['value']}"]
-            #     for p in f["outputs"]
-            # ]
-            outs = []
-            for p in f["outputs"]:
-                match p["operand"]["value"]["type"]:
-                    case "Register":
-                        outs.append(pget(mem, pid, env, f"r{p["operand"]["value"]["value"]}"))
-                    case "Literal":
-                        if p["operand"]["value"]["value"]["type"] == "Integer":
-                            outs.append(int(p["operand"]["value"]["value"]["integer"]))
-                        else:
-                            raise NotImplementedError(f"Unsupported return literal type, got: {p["operand"]["value"]["value"]["type"]}")
-                    case _:
-                        raise NotImplementedError(f"Unsupported return type, got: {p["operand"]["value"]["type"]}")
-            return outs
-        elif f["type"] == "FinalizeCore":
+        # pack and return
+        if finalize:
             # return all bool for safe
             return [Val.ALLBOOL]
         else:
-            raise NotImplementedError(f"Unsupported visitor node type, got: {f["type"]}")
+            return [ env.rget(pid, p[0], ctx, vfn=fabs) for p in fn["outputs"] ]
 
-    # initialize program-wise structures: mapping
-    mem[prog.id] = { mvar: {} for mvar in prog.mappings.keys() }
-
+    # prepare to visit
+    prog = env.programs[pid]
+    func = prog.functions[fid] if fid in prog.functions.keys() else prog.closures[fid]
     # call visitor
     visitor(
-        prog.id,
-        prog.functions[func],
+        pid,
+        fid,
         [
             Val.ALLINT # FIXME: determine values by type
-            for i in range(len(prog.functions[func]["inputs"]))
+            for i in range(len(func["inputs"]))
         ]
     )
 

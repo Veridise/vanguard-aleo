@@ -48,17 +48,6 @@ def tree2json(node):
     else:
         raise NotImplementedError(f"Unsupported type for tree2json, got: {node}")
     
-def simplify_array_type(node, shape=tuple()):
-    """Infer the type and shape of an array_type node"""
-    match node:
-        case ["array_type", t0, ["u32_literal", n0]]:
-            if t0[0] == "array_type":
-                return simplify_array_type(t0, (n0,)+shape)
-            else:
-                return ["array_type", t0, (n0,)+shape]
-        case _:
-            raise NotImplementedError(f"Not an array_type node, got: {node}")
-    
 def simplify_json(node):
     # post-order traversal
     match node:
@@ -171,8 +160,7 @@ def simplify_json(node):
         case ["literal_type", v0]:
             return simplify_json(v0)
         case ["array_type", "[", v0, ";", v1, "]"]:
-            # return ["array_type", simplify_json(v0), simplify_json(v1)]
-            return simplify_array_type(["array_type", simplify_json(v0), simplify_json(v1)])
+            return ["array_type", simplify_json(v0), simplify_json(v1)]
         case ["plaintext_type", v0]:
             return simplify_json(v0)
         case ["value_type", v0, v1]:
@@ -272,8 +260,8 @@ def simplify_json(node):
             return ["set", simplify_json(v0), simplify_json(v1), simplify_json(v2)]
         case ["remove", "remove", v0, "[", v1, "]", ";"]:
             return ["remove", simplify_json(v0), simplify_json(v1)]
-        case ["random", "rand.chacha", *vs, "into", v0, "as", v1, ";"]:
-            return ["random.chacha"] + [simplify_json(v) for v in vs] + [simplify_json(v0), simplify_json(v1)]
+        case ["random", "rand.chacha", "into", v0, "as", v1, ";"]:
+            return ["random.chacha", simplify_json(v0), simplify_json(v1)]
         # skipped: label
         case ["position", "position", v0, ";"]:
             return ["position", simplify_json(v0)]
@@ -321,199 +309,246 @@ def simplify_json(node):
             else:
                 return node
 
-# def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
-#     """Get information flow graph edges.
-#     Args:
-#       - prog: 
-#       - func
-#       - hash (default: False): whether to treat a hash function call directly as an edge
-#       - call (default: False): whether to treat a call directly as an edge
-#       - inline (default: False): whether to inline call invocations recursively to generate edges;
-#         if `call` is True, this argument is then overridden and no inlining will take place.
-#     Rets: A list of pairs of strings
-#     """
-#     node = prog.functions[func]
-#     assert_node_field(node, "instructions")
+def trim_inst(inst: str):
+    # remove space in "; " in array literals
+    # remove tailing semi-colon ";"
+    return inst.replace("; ", ";").strip(";")
 
-#     edges = []
-#     # process instructions
-#     for inst in node["instructions"] + node["outputs"]:
-#         tokens = trim_inst(inst["str"]).split()
-#         match tokens:
+def parse_word(v: str):
+    # parse register/constants
+    # returns a tuple (type, parsed_value)
+    # NOTE: some values are parsed but some are not, 
+    #       based on convenience of computation
 
-#             case ["is.eq", o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
-#             case ["is.neq", o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
+    if v == "true":
+        return ("boolean", True)
+    elif v == "false":
+        return ("boolean", False)
+    elif v.startswith("r"):
+        # register
+        return ("register", v)
+    elif v.startswith("aleo1"):
+        # address constant
+        return ("address", v)
+    elif "[" in v and "]" in v:
+        # array access
+        r = re.match( r"^(.*?)\[(.*?)\]$", v )
+        identifier = r.group(1)
+        operand = r.group(2)
+        return ("array", identifier, operand)
+    elif "/" in v:
+        assert v.count("/") == 1, f"Unrecognized external reference pattern, got: {v}"
+        ps = v.split("/")
+        loc = ps[0]
+        fn = ps[1]
+        return ("external", loc, fn)
+    elif v[0].isdigit():
+        ts = [
+            "u128", "u64", "u32", "u16", "u8",
+            "i128", "i64", "i32", "i16", "i8",
+            "field", "group", "scalar"
+        ]
+        for p in ts:
+            if v.endswith(p):
+                return ("number", p, int(v[:len(p)-1]))
+        raise NotImplementedError(f"Unsupported number type, got: {v}")
+    else:
+        # if no pattern is eventually matched, parse as identifier
+        return ("identifier", v)
+
+def get_ifg_edges(prog, func, hash=False, call=False, inline=False):
+    """Get information flow graph edges.
+    Args:
+      - prog: 
+      - func
+      - hash (default: False): whether to treat a hash function call directly as an edge
+      - call (default: False): whether to treat a call directly as an edge
+      - inline (default: False): whether to inline call invocations recursively to generate edges;
+        if `call` is True, this argument is then overridden and no inlining will take place.
+    Rets: A list of pairs of strings
+    """
+    node = prog.functions[func]
+    assert_node_field(node, "instructions")
+
+    edges = []
+    # process instructions
+    for inst in node["instructions"] + node["outputs"]:
+        tokens = trim_inst(inst["str"]).split()
+        match tokens:
+
+            case ["is.eq", o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
+            case ["is.neq", o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
             
-#             case ["assert.eq", o1, o2]:
-#                 edges.append((o1, o2))
-#                 edges.append((o2, o1))
-#             case ["assert.neq", o1, o2]:
-#                 edges.append((o1, o2))
-#                 edges.append((o2, o1))
+            case ["assert.eq", o1, o2]:
+                edges.append((o1, o2))
+                edges.append((o2, o1))
+            case ["assert.neq", o1, o2]:
+                edges.append((o1, o2))
+                edges.append((o2, o1))
 
-#             case ["cast", o, "into", r, "as", d]:
-#                 edges.append((o, r))
+            case ["cast", o, "into", r, "as", d]:
+                edges.append((o, r))
 
-#             case ["call", *ts]:
-#                 # manualy match the call component since there are two sequences of varying lengths
-#                 idx_into = tokens.index("into")
-#                 f = tokens[1]
-#                 os = tokens[2:idx_into]
-#                 rs = tokens[idx_into+1:]
-#                 if call:
-#                     for o in os:
-#                         for r in rs:
-#                             # overapproximated edges from every o to every r
-#                             edges.append((o, r))
-#                 elif inline:
-#                     # TODO: add impl
-#                     raise NotImplementedError
-#                 else:
-#                     # no inline, no call, then no edge
-#                     pass
+            case ["call", *ts]:
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                if call:
+                    for o in os:
+                        for r in rs:
+                            # overapproximated edges from every o to every r
+                            edges.append((o, r))
+                elif inline:
+                    # TODO: add impl
+                    raise NotImplementedError
+                else:
+                    # no inline, no call, then no edge
+                    pass
             
-#             case ["async", *ts]:
-#                 # FIXME: can't find official documentation for now, treated as call
-#                 # manualy match the call component since there are two sequences of varying lengths
-#                 idx_into = tokens.index("into")
-#                 f = tokens[1]
-#                 os = tokens[2:idx_into]
-#                 rs = tokens[idx_into+1:]
-#                 if call:
-#                     for o in os:
-#                         for r in rs:
-#                             # overapproximated edges from every o to every r
-#                             edges.append((o, r))
-#                 elif inline:
-#                     # TODO: add impl
-#                     raise NotImplementedError
-#                 else:
-#                     # no inline, no call, then no edge
-#                     pass
+            case ["async", *ts]:
+                # FIXME: can't find official documentation for now, treated as call
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                if call:
+                    for o in os:
+                        for r in rs:
+                            # overapproximated edges from every o to every r
+                            edges.append((o, r))
+                elif inline:
+                    # TODO: add impl
+                    raise NotImplementedError
+                else:
+                    # no inline, no call, then no edge
+                    pass
 
-#             case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
-#                 # no edge in commitment computation
-#                 pass
+            case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
+                # no edge in commitment computation
+                pass
 
-#             case [hop, o1, "into", r, "as", t] if hop.startswith("hash"):
-#                 # no edge in hash computation
-#                 pass
+            case [hop, o1, "into", r, "as", t] if hop.startswith("hash"):
+                # no edge in hash computation
+                pass
 
-#             case [binop, o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
+            case [binop, o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
             
-#             case [unop, o, "into", r]:
-#                 edges.append((o, r))
+            case [unop, o, "into", r]:
+                edges.append((o, r))
             
-#             case [terop, o1, o2, o3, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
-#                 edges.append((o3, r))
+            case [terop, o1, o2, o3, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
+                edges.append((o3, r))
 
-#             case ["cast", *os, "into", dst, "as", typ]:
-#                 for o in os:
-#                     edges.append((o, dst))
+            case ["cast", *os, "into", dst, "as", typ]:
+                for o in os:
+                    edges.append((o, dst))
             
-#             case ["output", o, "as", typ]:
-#                 # no edge in output command
-#                 pass
+            case ["output", o, "as", typ]:
+                # no edge in output command
+                pass
 
-#             case _:
-#                 raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
+            case _:
+                raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
 
-#     return edges
+    return edges
 
-# def get_dfg_edges(prog, func):
-#     """Get data flow graph edges.
-#     Args:
-#       - prog: 
-#       - func:
-#     Rets: A list of pairs of strings
-#     """
-#     node = prog.functions[func]
-#     assert_node_field(node, "instructions")
+def get_dfg_edges(prog, func):
+    """Get data flow graph edges.
+    Args:
+      - prog: 
+      - func:
+    Rets: A list of pairs of strings
+    """
+    node = prog.functions[func]
+    assert_node_field(node, "instructions")
 
-#     edges = []
-#     # process instructions
-#     for inst in node["instructions"]:
-#         tokens = trim_inst(inst["str"]).split()
-#         match tokens:
+    edges = []
+    # process instructions
+    for inst in node["instructions"]:
+        tokens = trim_inst(inst["str"]).split()
+        match tokens:
 
-#             case ["is.eq", o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
-#             case ["is.neq", o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
+            case ["is.eq", o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
+            case ["is.neq", o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
             
-#             case ["assert.eq", o1, o2]:
-#                 edges.append((o1, o2))
-#                 edges.append((o2, o1))
-#             case ["assert.neq", o1, o2]:
-#                 edges.append((o1, o2))
-#                 edges.append((o2, o1))
+            case ["assert.eq", o1, o2]:
+                edges.append((o1, o2))
+                edges.append((o2, o1))
+            case ["assert.neq", o1, o2]:
+                edges.append((o1, o2))
+                edges.append((o2, o1))
 
-#             case ["cast", o, "into", r, "as", d]:
-#                 edges.append((o, r))
+            case ["cast", o, "into", r, "as", d]:
+                edges.append((o, r))
             
-#             case ["call", *ts]:
-#                 # manualy match the call component since there are two sequences of varying lengths
-#                 idx_into = tokens.index("into")
-#                 f = tokens[1]
-#                 os = tokens[2:idx_into]
-#                 rs = tokens[idx_into+1:]
-#                 # no inlining, just add edge from this level
-#                 for o in os:
-#                     for r in rs:
-#                         # overapproximated edges from every o to every r
-#                         edges.append((o, r))
+            case ["call", *ts]:
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                # no inlining, just add edge from this level
+                for o in os:
+                    for r in rs:
+                        # overapproximated edges from every o to every r
+                        edges.append((o, r))
 
-#             case ["async", *ts]:
-#                 # FIXME: can't find official documentation for now, treated as call
-#                 # manualy match the call component since there are two sequences of varying lengths
-#                 idx_into = tokens.index("into")
-#                 f = tokens[1]
-#                 os = tokens[2:idx_into]
-#                 rs = tokens[idx_into+1:]
-#                 # no inlining, just add edge from this level
-#                 for o in os:
-#                     for r in rs:
-#                         # overapproximated edges from every o to every r
-#                         edges.append((o, r))
+            case ["async", *ts]:
+                # FIXME: can't find official documentation for now, treated as call
+                # manualy match the call component since there are two sequences of varying lengths
+                idx_into = tokens.index("into")
+                f = tokens[1]
+                os = tokens[2:idx_into]
+                rs = tokens[idx_into+1:]
+                # no inlining, just add edge from this level
+                for o in os:
+                    for r in rs:
+                        # overapproximated edges from every o to every r
+                        edges.append((o, r))
 
-#             case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
+            case [cop, o1, o2, "into", r, "as", t] if cop.startswith("commit"):
+                edges.append((o1, r))
+                edges.append((o2, r))
 
-#             case [hop, o1, "into", r, "as", t] if hop.startswith("hash"):
-#                 edges.append((o1, r))
+            case [hop, o1, "into", r, "as", t] if hop.startswith("hash"):
+                edges.append((o1, r))
 
-#             case [binop, o1, o2, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
+            case [binop, o1, o2, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
             
-#             case [unop, o, "into", r]:
-#                 edges.append((o, r))
+            case [unop, o, "into", r]:
+                edges.append((o, r))
             
-#             case [terop, o1, o2, o3, "into", r]:
-#                 edges.append((o1, r))
-#                 edges.append((o2, r))
-#                 edges.append((o3, r))
+            case [terop, o1, o2, o3, "into", r]:
+                edges.append((o1, r))
+                edges.append((o2, r))
+                edges.append((o3, r))
 
-#             case ["cast", *os, "into", dst, "as", typ]:
-#                 for o in os:
-#                     edges.append((o, dst))
+            case ["cast", *os, "into", dst, "as", typ]:
+                for o in os:
+                    edges.append((o, dst))
 
-#             case ["output", o, "as", typ]:
-#                 # no edge in output command
-#                 pass
+            case ["output", o, "as", typ]:
+                # no edge in output command
+                pass
             
-#             case _:
-#                 raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
+            case _:
+                raise NotImplementedError(f"Unknown instruction pattern, got: {inst['str']}")
 
-#     return edges
+    return edges

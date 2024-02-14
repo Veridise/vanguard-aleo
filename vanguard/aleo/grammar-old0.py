@@ -23,95 +23,6 @@ class AleoEnvironment:
             fp_json = aleo2json(fp_path)
             self.deploy(fp_json)
 
-    def locate_fc(self, pid: str, node: Union[str, dict, list]):
-        """Locate a function/closure from the environment"""
-        match node:
-            case s if isinstance(s, str):
-                assert pid in self.programs.keys(), f"Can't find program {pid}"
-                assert s in self.programs[pid].functions.keys() or\
-                       s in self.programs[pid].closures.keys(),\
-                       f"Can't find function/closure {s} in program {pid}"
-                return (pid, s)
-            case ["locator", ["program_id", ["program_name", p], ["program_domain", d]], f]:
-                pid = f"{p}.{d}"
-                assert pid in self.programs.keys(), f"Can't find program {pid}"
-                assert f in self.programs[pid].functions.keys() or\
-                       f in self.programs[pid].closures.keys(),\
-                        f"Can't find function/closure {f} in program {pid}"
-                return (pid, f)
-            case _: 
-                raise NotImplementedError(f"Unsupported function locator, got: {node}")
-
-    def resolve(self, node: Union[dict, list], kfn=lambda x:x, vfn=lambda x:x):
-        """Resolve given node into key of memory/ctx or literal value"""
-        match node:
-            case s if isinstance(s, str):
-                # this is usually identifier
-                return ("key", kfn(s))
-            case ["boolean_literal", v0]:
-                return ("val", vfn(v0))
-            case ["address_literal", v0]:
-                return ("val", vfn(v0))
-            case ["register_access", r0]:
-                return ("key", kfn(r0))
-            case ["unsigned_literal", v0, t0]:
-                return ("val", vfn(v0))
-            case ["field_literal", v0, t0]:
-                return ("val", vfn(v0))
-            case ["register_access", r0, ["register_accessor", ["u32_literal", r1]]]:
-                # access path for array with literal accessor
-                # e.g., r1[0u32]
-                return ("path", kfn(r0), kfn(r1))
-            case ["register_access", r0, ["register_accessor", r1]]:
-                # access path for array with other accessor, or structr/record with accessor
-                # e.g., r1.a, r1[r2]
-                return ("path", kfn(r0), kfn(r1))
-            case _:
-                raise NotImplementedError(f"Unsupported node to resolve, got: {node}")
-            
-    def rget(self, pid: str, node: Union[dict, list], ctx: dict = None, kfn=lambda x:x, vfn=lambda x:x):
-        """Resolve and then get"""
-        pt = self.resolve(node, kfn=kfn, vfn=vfn)
-        match pt:
-            case ("key", r0):
-                return self.mget(pid, r0, ctx=ctx)
-            case ("val", v0):
-                return v0
-            case ("path", v0, v1):
-                # v1 is accessor, which is plain text already
-                item = self.mget(pid, v0, ctx=ctx)
-                acc = v1
-                return item[acc]
-            case _:
-                raise NotImplementedError(f"Unsupported node, got: {node}")
-            
-    def rset(self, pid: str, node: Union[dict, list], val: Any, ctx: dict = None, kfn=lambda x:x, vfn=lambda x:x):
-        """Resolve and then set"""
-        pt = self.resolve(node, kfn=kfn, vfn=vfn)
-        match pt:
-            case ("key", r0):
-                self.mset(pid, r0, val, ctx=ctx)
-            case _:
-                raise NotImplementedError(f"Unsupported node, got: {node}")
-
-    def mget(self, pid: str, id: str, ctx: dict = None):
-        if ctx is None:
-            return self.programs[pid].mem[id]
-        else:
-            if id in ctx.keys():
-                return ctx[id]
-            else:
-                return self.programs[pid].mem[id]
-
-    def mset(self, pid: str, id: str, val: Any, ctx: dict = None):
-        if ctx is None:
-            self.programs[pid].mem[id] = val
-        else:
-            if id in ctx.keys():
-                ctx[id] = val
-            else:
-                self.programs[pid].mem[id] = val
-
     def deploy(self, json: dict) -> str:
         """Deploy a program with attach environment and return
         Args:
@@ -120,9 +31,121 @@ class AleoEnvironment:
         Rets:
           - pid of the program deployed
         """
-        p = AleoProgram(src=json)
+        p = AleoProgram(env=self, src=json)
         self.programs[p.id] = p
         return p.id
+    
+    def locate_function(self, bpid: str, fn: str):
+        """Return a path to the target function/closure
+        Args:
+          - bpid (str): base program id to use if the function name doesn't contain pid
+          - fn (str): target function name to locate
+        Rets:
+          - (AleoProgram, dict): target program and function object
+        """
+        pfn = parse_word(fn)
+        match pfn:
+            case ("identifier", v0):
+                # internal function
+                p0 = self.programs[bpid]
+                f0 = p0.closures[v0] if v0 in p0.closures.keys() else p0.functions[v0]
+                return (p0, f0)
+            case ("external", l0, v0):
+                # external function
+                p0 = self.programs[l0]
+                f0 = p0.closures[v0] if v0 in p0.closures.keys() else p0.functions[v0]
+                return (p0, f0)
+            case _:
+                raise NotImplementedError(f"Unsupported function to locate, got: {pfn}")
+    
+    def evaluate_word(self, pid: str, ctx: dict[str, Any], id: str, callback=None):
+        """Evaluate an identifier or a literal
+        Args:
+          - pid (str): program id
+          - ctx (dict): extra local context for the (function/finalize/...) block
+          - id (str): identifier
+          - callback: function to apply for literal evaluated
+        """
+        p = parse_word(id)
+        match p:
+            case ("boolean", v0):
+                return v0 if callback is None else callback(p)
+            case ("address", v0):
+                return v0 if callback is None else callback(p)
+            case ("number", t0, v0):
+                return v0 if callback is None else callback(p)
+            case _:
+                # requires memory access, dispatch
+                return self.memory_get(pid, ctx, id)
+
+    def memory_get(self, pid: str, ctx: dict[str, Any], id: str):
+        """Memory access of given identifier
+        Args:
+          - pid (str): program id
+          - ctx (dict): extra local context for the (function/finalize/...) block
+          - id (str): identifier
+        """
+        # fetch target memory
+        mem = self.programs[pid].mem
+        p = parse_word(id)
+        match p:
+            case ("register", s0):
+                return ctx[s0] if s0 in ctx.keys() else mem[s0]
+            case ("array", id0, od0):
+                # on Aleo bytecode level there won't be nested access to array
+                pod0 = parse_word(od0)
+                vod0 = None
+                if pod0[0] == "number" and (pod0[1] not in {"field", "group", "scalar"}):
+                    vod0 = ctx[id0][pod0[2]] if id0 in ctx.keys() else mem[id0][pod0[2]]
+                elif pod0[0] == "register":
+                    # evaluate register into number
+                    v0 = ctx[pod0[1]] if pod0[1] in ctx.keys() else mem[pod0[1]]
+                    vod0 = ctx[id0][v0] if id0 in ctx.keys() else mem[id0][v0]
+                else:
+                    raise NotImplementedError(f"Unsupported instance for array access, got: {pod0}")
+                # get value stored
+                return ctx[id0][vod0] if id0 in ctx.keys() else mem[id0][vod0]
+            case _:
+                raise NotImplementedError(f"Unsupported instance for memory access, got: {p}")
+
+    def memory_set(self, pid: str, ctx: dict[str, Any], id: str, val: Any):
+        """Memory write of given identifier
+        Args:
+          - pid (str): program id
+          - ctx (dict): extra local context for the (function/finalize/...) block
+          - id (str): identifier
+          - val (Any): value to set
+        """
+        # FIXME: in actual Aleo bytecode, you can't set a register, but only a mapping
+        #        this function extends the capability to register, but can be removed later
+        # fetch target memory
+        mem = self.programs[pid].mem
+        p = parse_word(id)
+        match p:
+            case ("register", s0):
+                if s0 in ctx.keys():
+                    ctx[s0] = val
+                else:
+                    mem[s0] = val
+            case ("array", id0, od0):
+                # on Aleo bytecode level there won't be nested access to array
+                pod0 = parse_word(od0)
+                vod0 = None
+                if pod0[0] == "number" and (pod0[1] not in {"field", "group", "scalar"}):
+                    vod0 = ctx[id0][pod0[2]] if id0 in ctx.keys() else mem[id0][pod0[2]]
+                elif pod0[0] == "register":
+                    # evaluate register into number
+                    v0 = ctx[pod0[1]] if pod0[1] in ctx.keys() else mem[pod0[1]]
+                    vod0 = ctx[id0][v0] if id0 in ctx.keys() else mem[id0][v0]
+                else:
+                    raise NotImplementedError(f"Unsupported instance for array access, got: {pod0}")
+                # set value
+                if id0 in ctx.keys():
+                    ctx[id0][vod0] = val
+                else:
+                    mem[id0][vod0] = val
+            case _:
+                raise NotImplementedError(f"Unsupported instance for memory write, got: {p}")
 
 class AleoProgram:
     """A virtual machine that prepare Aleo program for future use and provides common functionalities
@@ -147,55 +170,25 @@ class AleoProgram:
         self.closures = {}
         self.functions = {} # name -> { "inputs": [ (var, type) ], "outputs": [ (ref, type) ], "instructions": [ ... ] }
 
-        # other components
-        self.struct_constructors = {} # name -> (list -> dict)
-        self.record_constructors = {} # name -> (list -> dict)
-
         # load program from a path or json
         if isinstance(src, dict) or isinstance(src, list):
             self.json = src
             # load and initialize program
             self.ejson = simplify_json(self.json)
             self.load(self.ejson)
-            self.init()
         elif isinstance(src, str) or isinstance(src, Path):
             self.json = aleo2json(src)
             # load and initialize program
             self.ejson = simplify_json(self.json)
             self.load(self.ejson)
-            self.init()
         elif src is None:
             # empty program
             pass
         else:
             raise NotImplementedError(f"Unsupported source of program, got: {src}")
         
-    def init(self):
-        """Initialize program components"""
-        # load mapping into memory
-        for dname in self.mappings.keys():
-            self.mem[dname] = {}
-
-        # initialize struct constructors
-        for dname in self.structs.keys():
-            sfields = list(self.structs[dname].keys())
-            # NOTE: err with insufficient args length, ignore extra args
-            # beware of lambda local
-            # see: https://stackoverflow.com/questions/10452770/python-lambdas-binding-to-local-values
-            self.struct_constructors[dname] = \
-                lambda *args: { sfields[i] : args[i] for i in range(len(sfields)) }
-            
-        # initialize record constructors
-        for dname in self.records.keys():
-            rfields = list(self.records[dname].keys())
-            # NOTE: err with insufficient args length, ignore extra args
-            # beware of lambda local
-            # see: https://stackoverflow.com/questions/10452770/python-lambdas-binding-to-local-values
-            self.record_constructors[dname] = \
-                lambda *args: { rfields[i] : args[i] for i in range(len(rfields)) }
-            
-        # TODO: initialize more later
-
+        # return id
+        return self.id
     
     def load(self, node: Union[dict, list]):
         """Load program from easy json
@@ -204,8 +197,6 @@ class AleoProgram:
         """
         for p in node:
             match p:
-                case "program":
-                    pass
 
                 case ["program_id", v0, v1]:
                     self.name = v0[1]
@@ -269,27 +260,7 @@ class AleoProgram:
                                 s["inputs"].append((var, type))
                             case _:
                                 raise NotImplementedError(f"Unsupported function component, got: {p0}")
-                    
-                    fs = None
-                    if v1 is not None:
-                        # also format the finalize block to have the same structure as function
-                        fs = { "inputs": [], "instructions": [] }
-                        for p0 in v1:
-                            match p0:
-                                case z if isinstance(z, str) and z in {"finalize", name}:
-                                    pass
-                                case ["command", cmd]:
-                                    if cmd[0] == "instruction":
-                                        fs["instructions"].append(cmd[1])
-                                    else:
-                                        fs["instructions"].append(cmd)
-                                case ["finalize_input", var, type]:
-                                    fs["inputs"].append((var, type))
-                                case _:
-                                    raise NotImplementedError(f"Unsupported finalize component, got: {p0}")
-
-                    s["finalize"] = fs
-                    self.functions[name] = s
+                    s["finalize"] = v1
 
                 case ["closure", v0, *vs]:
                     # v0: name | vs: input/output/instruction
@@ -305,7 +276,6 @@ class AleoProgram:
                                 s["inputs"].append((var, type))
                             case _: 
                                 raise NotImplementedError(f"Unsupported closure component, got: {p0}")
-                    self.closures[name] = s
 
                 case _:
                     raise NotImplementedError(f"Unsupported json component, got: {p}")

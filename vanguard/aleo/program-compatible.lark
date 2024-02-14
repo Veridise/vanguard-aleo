@@ -1,0 +1,138 @@
+// adapted from: https://github.com/AleoHQ/grammars/blob/master/aleo.abnf
+start: program
+
+uppercase_letter : "A".."Z"
+lowercase_letter : "a".."z"
+letter : uppercase_letter | lowercase_letter
+
+digit : "0".."9"
+
+!identifier : letter ( letter | digit | "_" )*
+!lowercase_identifier : lowercase_letter ( lowercase_letter | digit | "_" )*
+program_name : lowercase_identifier
+program_domain : lowercase_identifier
+!program_id : program_name "." program_domain
+!locator : program_id "/" identifier
+
+!register : "r" digit+
+// !register_accessor : "." identifier | "[" u32_literal "]"
+!register_accessor : "." identifier | "[" u32_literal "]" | "[" digit+ "]"
+register_access : register register_accessor*
+
+!signed_literal : [ "-" ] ( digit "_"* )+ signed_type
+!unsigned_literal : [ "-" ] ( digit "_"* )+ unsigned_type
+integer_literal : signed_literal | unsigned_literal
+!field_literal : [ "-" ] ( digit "_"* )+ field_type
+!group_literal : [ "-" ] ( digit "_"* )+ group_type
+!scalar_literal : [ "-" ] ( digit "_"* )+ scalar_type
+arithmetic_literal : integer_literal | field_literal | group_literal | scalar_literal
+!u32_literal : [ "-" ] ( digit "_"* )+ "u32"
+
+!address_literal : "aleo1" ( address_or_signature_char "_"* )+
+!signature_literal : "sign1" ( address_or_signature_char "_"* )+
+!address_or_signature_char : "0" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+                          | "a" | "c" | "d" | "e" | "f" | "g" | "h" | "j" | "k"
+                          | "l" | "m" | "n" | "p" | "q" | "r" | "s" | "t" | "u"
+                          | "v" | "w" | "x" | "y" | "z"
+
+!boolean_literal : "true" | "false"
+
+literal : arithmetic_literal | address_literal | signature_literal | boolean_literal
+
+!operand : literal | "group::GEN" | register_access | program_id | "self.signer" | "self.caller" | "block.height"
+
+!unsigned_type : "u8" | "u16" | "u32" | "u64" | "u128"
+!signed_type : "i8" | "i16" | "i32" | "i64" | "i128"
+integer_type : unsigned_type | signed_type
+!field_type : "field"
+!group_type : "group"
+!scalar_type : "scalar"
+arithmetic_type : integer_type | field_type | group_type | scalar_type
+!address_type : "address"
+!boolean_type : "boolean"
+!signature_type : "signature"
+literal_type : arithmetic_type | address_type | signature_type | boolean_type
+!array_type : "[" WS* plaintext_type WS* ";" WS* u32_literal WS* "]"
+plaintext_type : literal_type | array_type | identifier
+!value_type : plaintext_type ".constant" | plaintext_type ".public" | plaintext_type ".private"
+           | identifier ".record" | locator ".record" | locator ".future"
+!mapping_type : plaintext_type ".public"
+!finalize_type : plaintext_type ".public" | locator ".future"
+!entry_type : plaintext_type ( ".constant" | ".public" | ".private" )
+!register_type : locator ".future" | locator ".record" | identifier ".record" | plaintext_type
+
+!import : CWS* "import" WS* program_id WS* ";"
+
+!mapping : CWS* "mapping" WS* identifier WS* ":" mapping_key mapping_value
+!mapping_key : CWS* "key" WS* "as" WS* mapping_type WS* ";"
+!mapping_value : CWS* "value" WS* "as" WS* mapping_type WS* ";"
+
+!struct : CWS* "struct" WS* identifier WS* ":" tuple+
+!tuple : CWS* identifier WS* "as" WS* plaintext_type WS* ";"
+
+!record : CWS* "record" WS* identifier WS* ":" CWS* "owner" WS* "as" WS* ( "address.public" | "address.private" ) WS* ";" entry*
+!entry : CWS* identifier WS* "as" WS* entry_type WS* ";"
+
+!unary_op : "abs" | "abs.w" | "double" | "inv" | "neg" | "not" | "square" | "sqrt"
+!binary_op : "add" | "add.w" | "sub" | "sub.w" | "mul" | "mul.w" | "div" | "div.w" | "rem" | "rem.w"
+           | "pow" | "pow.w" | "shl" | "shl.w" | "shr" | "shr.w" | "mod" | "and" | "or" | "xor"
+           | "nand" | "nor" | "gt" | "gte" | "lt" | "lte"
+!is_op : "is.eq" | "is.neq"
+!assert_op : "assert.eq" | "assert.neq"
+!commit_op : "commit.bhp" ( "256" | "512" | "768" | "1024" )
+           | "commit.ped" ( "64" | "128" )
+!hash1_op : "hash.bhp" ( "256" | "512" | "768" | "1024" )
+          | "hash.ped" ( "64" | "128" )
+          | "hash.psd" ( "2" | "4" | "8" )
+          | "hash.keccak" ( "256" | "384" | "512" )
+          | "hash.sha3_" ( "256" | "384" | "512" )
+!hash2_op : "hash_many.psd" ( "2" | "4" | "8" )
+!cast_op : "cast" | "cast.lossy"
+// !cast_destination : plaintext_type | identifier | locator | "group.x" | "group.y"
+!cast_destination : register_type | locator | "group.x" | "group.y"
+!unary : unary_op WS* operand WS* "into" WS* register_access
+!binary : binary_op (WS* operand)~2 WS* "into" WS* register_access
+!ternary : "ternary" (WS* operand)~3 WS* "into" WS* register_access
+!is : is_op (WS* operand)~2 WS* "into" WS* register_access
+assert : assert_op (WS* operand)~2
+!commit : commit_op (WS* operand)~2 WS* "into" WS* register_access WS* "as" WS* ( address_type | field_type | group_type )
+!hash1 : hash1_op WS* operand WS* "into" WS* register_access WS* "as" WS* ( arithmetic_type | address_type | signature_type | array_type | identifier )
+!hash2 : hash2_op (WS* operand)~2 WS* "into" WS* register_access WS* "as" WS* ( arithmetic_type | address_type | signature_type | array_type | identifier )
+hash : hash1 | hash2
+// !signverify : "sign.verify" operand~3 "into" register_access
+!signverify : ( "sign.verify" | "sign_verify" ) (WS* operand)~3 WS* "into" WS* register_access
+!cast : cast_op (WS* operand)+ WS* "into" WS* register_access WS* "as" WS* cast_destination
+!call : "call" WS* ( locator | identifier ) (WS* operand)* [ WS* "into" (WS register_access)+ ]
+!async : CWS* "async" WS* identifier (WS* operand)* WS* "into" WS* register_access
+!instruction : CWS* ( unary | binary | ternary | is | assert | commit | hash | signverify | cast | call | async ) WS* ";"
+!contains : CWS* "contains" WS* identifier "[" WS* operand WS* "]" WS* "into" WS* register_access WS* ";"
+!get : CWS* "get" WS* identifier "[" WS* operand WS* "]" WS* "into" WS* register_access WS* ";"
+!get_or_use : CWS* "get.or_use" WS* identifier "[" WS* operand WS* "]" WS* operand WS* "into" WS* register_access WS* ";"
+!set : CWS* "set" WS* operand WS* "into" WS* identifier "[" WS* operand WS* "]" WS* ";"
+!remove : CWS* "remove" WS* identifier "[" WS* operand WS* "]" WS* ";"
+!random : CWS* "rand.chacha" (WS* operand)* WS* "into" WS* register_access WS* "as" WS* ( arithmetic_type | address_type | signature_type | boolean_type ) WS* ";"
+label : identifier
+!position : CWS* "position" WS* label WS* ";"
+!branch_op : "branch.eq" | "branch.neq"
+!branch : CWS* branch_op WS* (WS* operand)~2 WS* "to" WS* label WS* ";"
+!await : CWS* "await" WS* register_access WS* ";"
+command : contains | get | get_or_use | set | remove | random | position | branch | await | instruction
+
+!closure : CWS* "closure" WS* identifier WS* ":" closure_input* instruction+ closure_output*
+!closure_input : CWS* "input" WS* register WS* "as" WS* register_type WS* ";"
+!closure_output : CWS* "output" WS* operand WS* "as" WS* register_type WS* ";"
+
+!function : CWS* "function" WS* identifier WS* ":" function_input* instruction* function_output* [ finalize ]
+!function_input : CWS* "input" WS* register WS* "as" WS* value_type WS* ";"
+!function_output : CWS* "output" WS* operand WS* "as" WS* value_type WS* ";"
+!finalize : CWS* "finalize" WS* identifier WS* ":" finalize_input* command+
+!finalize_input : CWS* "input" WS* register WS* "as" WS* finalize_type WS* ";"
+
+!program : import* CWS* "program" WS* program_id WS* ";" ( mapping | struct | record | closure | function )+ CWS*
+
+COMMENT: "//" /.*/ "\n"
+  | "/*" /(.|\n)+/ "*//"
+CWS: WS ( COMMENT | WS* )*
+%import common.WS
+// %ignore WS
+%ignore COMMENT
