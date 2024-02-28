@@ -1,0 +1,19 @@
+name: Dev CI
+
+on:
+    push:
+        branches: [ "main", "dev" ]
+    pull_request:
+        branches: [ "main", "dev" ]
+    workflow_dispatch:
+
+jobs:
+    environment-test:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: test hello.py
+              run: python tests/scripts/hello.py
