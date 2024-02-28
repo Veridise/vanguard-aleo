@@ -164,14 +164,15 @@ def detector_divz(env: AleoEnvironment, pid: str, fid: str, readable=False):
     def visitor(pid, fid, inps: list, finalize=False):
         
         # determine block
+        pr = env.programs[pid]
         fn = None
-        if fid in env.programs[pid].functions.keys():
+        if fid in pr.functions.keys():
             if finalize:
-                fn = env.programs[pid].functions[fid].finalize
+                fn = pr.functions[fid].finalize
             else:
-                fn = env.programs[pid].functions[fid]
+                fn = pr.functions[fid]
         else:
-            fn = env.programs[pid].closures[fid]
+            fn = pr.closures[fid]
             assert not finalize, f"Closure {fid} doesn't have a finalize block"
         
         assert len(fn.inputs) == len(inps), \
@@ -252,6 +253,52 @@ def detector_divz(env: AleoEnvironment, pid: str, fid: str, readable=False):
                     # set mapping as defaultdict
                     env.mset(pid, inst.id, defaultdict(lambda: _ss), ctx=None)
 
+                case AleoCast():
+                    avs = [ a(env.mget(pid, p, ctx=ctx)) for p in inst.operands ]
+                    ao = None
+                    # NOTE: dest is about type, not register, not value, just type
+                    match inst.dest:
+                        # identifier with modifier
+                        case AleoIdentifier() | AleoLocator():
+                            # determine internal or external program id and id
+                            _pid = pid if type(inst.dest) is AleoIdentifier else inst.dest.pid
+                            _id = inst.dest if type(inst.dest) is AleoIdentifier else inst.dest.id
+                            _pr = env.programs[_pid]
+                            # NOTE: for locator, its current visibility overrrides 
+                            #       the visibility of the location it refers to
+                            if _id.visibility == AleoModifier.RECORD:
+                                # record type specified
+                                print(f"# [debug] _pid={_pid}, id={_id.id}, vis={_id.visibility}")
+                                ao = _pr.records[_id].instantiate(avs)
+                            elif _id.visibility == AleoModifier.DEFAULT:
+                                # regular typing, first try struct, then record
+                                if _id in _pr.structs.keys():
+                                    ao = _pr.structs[_id].instantiate(avs)
+                                elif _id in pr.records.keys():
+                                    ao = _pr.records[_id].instantiate(avs)
+                                else:
+                                    raise KeyError(f"Can't find struct/record, got: {inst.dest.id}")
+                            else:
+                                raise NotImplementedError(f"Unsupported identifier modifier in cast destination, got: {inst.dest}")
+                        case AleoArrayType():
+                            assert len(inst.dest.dim) == 1, f"Only 1d array as cast destination is supported, got: {inst.dest.dim}"
+                            assert len(avs) == inst.dest.dim[0], f"Array lengths mismatch, expected: {inst.dest.dim}, got: {len(avs)}"
+                            ao = avs
+                        case AleoLiteralType():
+                            # NOTE: this is actually value casting, not value packing as in other cases
+                            # FIXME: add actual casting
+                            assert len(avs) == 1, f"When casting to literal type, only one value is allowed, got: {avs}"
+                            ao = avs[0]
+                        case _:
+                            raise NotImplementedError(f"Unsupported cast destination, got: {inst.dest}")
+                    # set
+                    env.mset(pid, inst.regacc, ao, ctx=ctx)
+
+                case AleoRandom():
+                    # over-approximate
+                    ao = AleoAbstractLiteral(AbsDom.ALLINT(), AleoAbstractType())
+                    env.mset(pid, inst.regacc, ao, ctx=ctx)
+                
                 case _:
                     raise NotImplementedError(f"Unsupported instruction, got: {inst}")
         

@@ -77,9 +77,9 @@ class AleoEnvironment(AleoNode):
                 for p in id.accs:
                     match p:
                         case AleoAccessByField():
-                            base = base[p.value]
+                            base = base[f"{p.field}"]
                         case AleoAccessByIndex():
-                            base = base[p.value]
+                            base = base[p.index.value]
                         case _:
                             raise NotImplementedError(f"Unsupported accessor, got: {p}")
                 return base
@@ -122,9 +122,9 @@ class AleoEnvironment(AleoNode):
                 for p in id.accs[:-1]:
                     match p:
                         case AleoAccessByField():
-                            lbobase = lbobase[p.value]
+                            lbobase = lbobase[f"{p.field}"]
                         case AleoAccessByIndex():
-                            lbobase = lbobase[p.value]
+                            lbobase = lbobase[p.index.value]
                         case _:
                             raise NotImplementedError(f"Unsupported accessor, got: {p}")
                 # set the last
@@ -257,7 +257,7 @@ class AleoStruct(AleoNode):
         return f"{_id}\n{_fields}"
     
     def instantiate(self, params: list):
-        _keys = self.fields.keys()
+        _keys = list(self.fields.keys())
         return { _keys[i] : params[i]  for i in range(len(_keys)) }
 
 class AleoMapping(AleoNode):
@@ -323,7 +323,7 @@ class AleoRecord(AleoNode):
         return f"{_id}\n{_fields}"
     
     def instantiate(self, params: list):
-        _keys = self.fields.keys()
+        _keys = list(self.fields.keys())
         return { _keys[i] : params[i]  for i in range(len(_keys)) }
 
 class AleoFunction(AleoNode):

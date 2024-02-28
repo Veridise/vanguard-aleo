@@ -119,13 +119,17 @@ class AleoIdentifier(AleoNode):
     def __str__(self):
         return f"{self.id}{self.visibility}"
     
+    # NOTE: when used as key, visibility does not hash
     def __hash__(self):
-        return hash(self.__str__())
+        return hash(f"{self.id}")
     
     # NOTE: identifier behaves like string but keeps its type
+    # NOTE: when used as key, visibility does not hash
     def __eq__(self, other):
-        if type(self) is type(other) or isinstance(other, str):
-            return str(self) == str(other)
+        if type(self) is type(other):
+            return f"{self.id}" == f"{other.id}"
+        elif isinstance(other, str):
+            return f"{self.id}" == other
         else:
             return False
     
@@ -308,6 +312,8 @@ class AleoCastDestination(AleoNode):
             case ["cast_destination", ["register_type", *_]]:
                 from .types import AleoRegisterType
                 return AleoRegisterType.from_json(node[1])
+            case ["cast_destination", ["locator", *_]]:
+                return AleoLocator.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             

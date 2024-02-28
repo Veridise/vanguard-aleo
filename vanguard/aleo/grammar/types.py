@@ -73,7 +73,8 @@ class AleoArrayType(AleoPlaintextType):
                 # b: base type
                 btype = AleoPlaintextType.from_json(b)
                 # if base type is a nested array type, unfold it
-                size = AleoU32Literal.from_json(u32)
+                # directly use the integer after parsing, don't wrap
+                size = AleoU32Literal.from_json(u32).value
                 dim = btype.dim + (size,) if isinstance(btype, AleoArrayType) else (size,)
                 return AleoArrayType(btype, dim)
             case _:
@@ -82,13 +83,14 @@ class AleoArrayType(AleoPlaintextType):
     def __init__(self, btype, dim, **kwargs):
         super().__init__(**kwargs)
         self.btype = btype
-        self.dim = dim
+        self.dim = dim # directly stored in tuple
 
     def __str__(self):
-        s = f"[{self.btype};{self.dim[0]}]"
+        # as dim is directly stored as tuple, add u32 postfix
+        s = f"[{self.btype};{self.dim[0]}u32]"
         if len(self.dim) > 1:
             for p in self.dim[1:]:
-                s = f"[{s};{p}]"
+                s = f"[{s};{p}u32]"
         return s
             
 class AleoLiteralType(AleoPlaintextType):
