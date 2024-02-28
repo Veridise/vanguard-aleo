@@ -33,6 +33,11 @@ def detector_infoleak(env: AleoEnvironment, pid: str, fid: str, readable=False):
             continue
 
         for sig_out in pub_outs:
+            if not G.has_node(sig_out):
+                # output signal is not in graph, meaning it's not used
+                # meaning there's no leakage via this signal
+                continue
+
             if nx.has_path(G, sig_in, sig_out):
                 if readable:
                     paths.append((f"{sig_in}", f"{sig_out}"))
