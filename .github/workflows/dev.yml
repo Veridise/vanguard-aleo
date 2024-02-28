@@ -49,5 +49,47 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
-            - name: test parsing.py
-              run: PYTHONPATH="./" python ./tests/scripts/parsing.py
+            - name: test divz
+              run: PYTHONPATH="./" python ./tests/scripts/test-divz.py
+
+    detector-test-infoleak:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: install dependencies
+              run: |
+                pip install networkx[default]
+                pip install lark
+            - name: test infoleak
+              run: PYTHONPATH="./" python ./tests/scripts/test-infoleak.py
+    
+    detector-test-rtcnst:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: install dependencies
+              run: |
+                pip install networkx[default]
+                pip install lark
+            - name: test rtcnst
+              run: PYTHONPATH="./" python ./tests/scripts/test-rtcnst.py
+    
+    detector-test-unused:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: install dependencies
+              run: |
+                pip install networkx[default]
+                pip install lark
+            - name: test unused
+              run: PYTHONPATH="./" python ./tests/scripts/test-unused.py
