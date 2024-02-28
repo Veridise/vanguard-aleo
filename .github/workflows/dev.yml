@@ -37,3 +37,17 @@ jobs:
                 pip install lark
             - name: test parsing.py
               run: PYTHONPATH="./" python ./tests/scripts/parsing.py
+
+    detector-test-divz:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
+              with:
+                python-version: '3.12'
+            - name: install dependencies
+              run: |
+                pip install networkx[default]
+                pip install lark
+            - name: test parsing.py
+              run: PYTHONPATH="./" python ./tests/scripts/parsing.py
