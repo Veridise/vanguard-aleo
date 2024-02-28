@@ -1,4 +1,5 @@
 // adapted from: https://github.com/AleoHQ/grammars/blob/master/aleo.abnf
+// this is a compatible grammar that adapts to older versions of Aleo grammar
 start: program
 
 uppercase_letter : "A".."Z"
@@ -16,7 +17,10 @@ program_domain : lowercase_identifier
 
 !register : "r" digit+
 // !register_accessor : "." identifier | "[" u32_literal "]"
-!register_accessor : "." identifier | "[" u32_literal "]" | "[" digit+ "]"
+// !register_accessor : "." identifier | "[" u32_literal "]" | "[" digit+ "]"
+!access_by_field : "." identifier
+!access_by_index : "[" u32_literal "]" | "[" digit+ "]"
+register_accessor : access_by_field | access_by_index
 register_access : register register_accessor*
 
 !signed_literal : [ "-" ] ( digit "_"* )+ signed_type

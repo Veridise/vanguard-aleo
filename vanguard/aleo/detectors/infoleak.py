@@ -1,31 +1,28 @@
 import networkx as nx
 
-from ..common import get_ifg_edges, trim_inst
+from ..grammar import *
+from ..graphs import get_dfg_edges
 
-def detector_infoleak(prog, func):
-    """Detect for information leak
-    Args:
-      - prog:
-      - func:
-    Rets: (result, info)
-    """
+def detector_infoleak(env: AleoEnvironment, pid: str, fid: str, readable=False):
+    # initialize
+    prog: AleoProgram = env.programs[pid]
+    func: AleoFunction = prog.functions[fid]
+    
+    edges = get_dfg_edges(env, pid, fid, hash=False)
 
-    edges = get_ifg_edges(prog, func, hash=False, call=True, inline=False)
-    # add special edge to account for direct return of input signal
-    for inst in prog.functions[func]["outputs"]:
-        tokens = trim_inst(inst["str"]).split()
-        match tokens:
-            case ["output", o, "as", t]:
-                edges.append((o,o))
+    # DEBUG
+    for p in edges:
+        print(f"{p[0]} -> {p[1]}")
 
-    prv_inps = prog.get_function_arguments(func, "private", "inputs")
-    pub_outs = prog.get_function_arguments(func, "public", "outputs")
+    prv_inps = [k for k,v in func.inputs if v.visibility in {AleoModifier.PRIVATE, AleoModifier.DEFAULT}]
+    pub_outs = [k for k,v in func.outputs if v.visibility==AleoModifier.PUBLIC]
 
     G = nx.DiGraph()
     G.add_edges_from(edges)
 
     paths = []
     for sig_in in prv_inps:
+        print(f"# [debug] sig_in: {sig_in}")
         if not G.has_node(sig_in):
             # signal is not in graph, meaning it's not used
             # since it's not used, it's not leaked
@@ -34,6 +31,9 @@ def detector_infoleak(prog, func):
 
         for sig_out in pub_outs:
             if nx.has_path(G, sig_in, sig_out):
-                paths.append((sig_in, sig_out))
-    
+                if readable:
+                    paths.append((f"{sig_in}", f"{sig_out}"))
+                else:
+                    paths.append((sig_in, sig_out))
+
     return (len(paths)>0, paths)
