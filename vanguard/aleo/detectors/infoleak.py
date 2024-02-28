@@ -9,6 +9,9 @@ def detector_infoleak(env: AleoEnvironment, pid: str, fid: str, readable=False):
     func: AleoFunction = prog.functions[fid]
     
     edges = get_dfg_edges(env, pid, fid, hash=False)
+    # special edge a -> a so that direct returning of a variable is accounted
+    for k,v in func.inputs:
+        edges.append((k, k))
 
     # DEBUG
     for p in edges:

@@ -9,7 +9,7 @@ if __name__ == "__main__":
     
     fid = "ex0"
     res, info = detector_unused(env, main.id, fid)
-    assert not res, f"Test failed for {fid}, expected: True, got: {res}"
+    assert not res, f"Test failed for {fid}, expected: False, got: {res}"
 
     fid = "ex1"
     res, info = detector_unused(env, main.id, fid)
