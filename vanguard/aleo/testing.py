@@ -1,6 +1,7 @@
 import requests
 import time
 import json
+import pandas as pd
 
 from bs4 import BeautifulSoup
 
@@ -32,6 +33,15 @@ def run_test_suite(build_path, detector, verbose=False):
 
     if verbose:
         print(f"# [test] accuracy: {ncorrect}/{len(actual_labels)} ({ncorrect/len(actual_labels):.4f})")
+
+    if verbose:
+        pd_expected = pd.Series(expected_labels, name="expected")
+        pd_actual = pd.Series(actual_labels, name="actual")
+        mtx =pd.crosstab(pd_expected, pd_actual)
+        mtx_norm = mtx.div(mtx.sum(axis=1), axis="index")
+        print(f"# [test] confusion matrix:\n  {mtx}")
+        print(f"# [test] normalized confusion matrix:\n  {mtx_norm}")
+    
     return (expected_labels, expected_infos, actual_labels, actual_infos)
 
 def crawl_from_haruka_explorer(istart, iend, folder):
