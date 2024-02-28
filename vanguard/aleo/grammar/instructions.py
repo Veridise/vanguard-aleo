@@ -31,17 +31,17 @@ class AleoSet(AleoCommand):
     def from_json(node):
         match node:
             case ["set", "set", operand0, "into", id, "[", operand1, "]", ";"]:
-                _id = AleoIdentifier.from_json(id)
                 _src = AleoOperand.from_json(operand0)
+                _id = AleoIdentifier.from_json(id)
                 _tgt = AleoOperand.from_json(operand1)
-                return AleoSet(_id, _src, _tgt)
+                return AleoSet(_src, _id, _tgt)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
-    def __init__(self, id, src, tgt, **kwargs):
+    def __init__(self, src, id, tgt, **kwargs):
         super().__init__(**kwargs)
-        self.id = id
         self.src = src
+        self.id = id
         self.tgt = tgt
 
     def __str__(self):

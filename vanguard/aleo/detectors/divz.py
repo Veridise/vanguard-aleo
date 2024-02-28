@@ -1,300 +1,271 @@
+from typing import Union
 from enum import Enum
 from collections import defaultdict
 
-from ..grammar import AleoProgram, AleoEnvironment
+from ..grammar import *
 
-class Dom(Enum):
-    # abstract domain
-
+class AbsDom(Enum):
     NEG = -1
     ZERO = 0
     POS = 1
-
     FALSE = 100
     TRUE = 101
 
-class Val:
-    # some pre-defined set
-    # NOTE: this is a normal class, so values don't get hased and are iterable
+    def TOP(): return {AbsDom.NEG, AbsDom.ZERO, AbsDom.POS, AbsDom.FALSE, AbsDom.TRUE}
+    def ALLINT(): return {AbsDom.NEG, AbsDom.ZERO, AbsDom.POS}
+    def NNINT(): return {AbsDom.ZERO, AbsDom.POS} # non-negative int
+    def NPINT(): return {AbsDom.NEG, AbsDom.ZERO} # non-positive int
+    def ALLBOOL(): return {AbsDom.FALSE, AbsDom.TRUE}
+    def BOT(): return set()
 
-    # this is usually not used, use with caution
-    TOP = {Dom.NEG, Dom.ZERO, Dom.POS, Dom.FALSE, Dom.TRUE}
+class AleoAbstractType(AleoType):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    def __str__(self):
+        return "$"
 
-    ALLINT = {Dom.NEG, Dom.ZERO, Dom.POS}
-    NNINT = {Dom.ZERO, Dom.POS} # non-negative int
-    NPINT = {Dom.NEG, Dom.ZERO} # non-positive int
+class AleoAbstractLiteral(AleoLiteral):
 
-    ALLBOOL = {Dom.FALSE, Dom.TRUE}
+    @staticmethod
+    def abs(node):
+        _type = AleoAbstractType()
+        match node:
+            case AleoAddressLiteral():
+                return AleoAbstractLiteral(AbsDom.BOT(), _type)
+            case AleoBooleanLiteral():
+                if node.value:
+                    return AleoAbstractLiteral({AbsDom.TRUE}, _type)
+                else:
+                    return AleoAbstractLiteral({AbsDom.FALSE}, _type)
+            case AleoFieldLiteral() | AleoUnsignedLiteral() | AleoSignedLiteral():
+                if node.value == 0:
+                    return AleoAbstractLiteral({AbsDom.ZERO}, _type)
+                elif node.value > 0:
+                    return AleoAbstractLiteral({AbsDom.POS}, _type)
+                else:
+                    return AleoAbstractLiteral({AbsDom.NEG}, _type)
+            case _:
+                raise NotImplementedError(f"Unsupported literal, got: {node}")
+            
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    BOT = set() # exception status
+    def __str__(self):
+        return f"{self.type}{self.value}"
     
-def fabs(v):
-    if isinstance(v, bool):
-        return {Dom.TRUE} if v else {Dom.FALSE}
-    elif isinstance(v, int):
-        if v == 0:
-            return {Dom.ZERO}
-        else:
-            return {Dom.POS} if v > 0 else {Dom.NEG}
-    elif isinstance(v, str):
-        return Val.BOT
-    else:
-        raise NotImplementedError(f"Unsupported type for abstraction, got: {v}")
-    
-def cast2int(v):
-    # invalid cast
-    if (Dom.FALSE not in v) and (Dom.TRUE not in v) and len(v) > 0:
-        return Val.BOT
-    
-    r = set()
-    if Dom.FALSE in v:
-        r.add(Dom.ZERO)
-    if Dom.TRUE in v:
-        r.add(Dom.POS)
-    return r
-    
-def generate_absop(ltab):
+def absop(ltab):
     # ltab: look-up table
     # construct function
-    def do(a, b):
+    def do(a: AleoAbstractLiteral, b: AleoAbstractLiteral):
         r = set()
-        for a0 in a:
-            for b0 in b:
-                r.update(ltab[a0][b0])
-        return r
+        for a0 in a.value:
+            if a0 in ltab.keys():
+                for b0 in b.value:
+                    if b0 in ltab[a0].keys():
+                        r.update(ltab[a0][b0])
+        return AleoAbstractLiteral(r, AleoAbstractType())
     # return the function
     return do
 
-class AbsOp:
-    # NOTE: let it throw an exception if abs value is not found, as Aleo should be type checked
-    #       and it's usually the interpreter's issue when there's an exception
+# load class attribute
+AleoAbstractLiteral.ops = {
 
-    ADD = generate_absop({
-        Dom.NEG:  { Dom.NEG: {Dom.NEG}, Dom.ZERO: {Dom.NEG}, Dom.POS: Val.ALLINT },
-        Dom.ZERO: { Dom.NEG: {Dom.NEG}, Dom.ZERO: {Dom.ZERO}, Dom.POS: {Dom.POS} },
-        Dom.POS:  { Dom.NEG: Val.ALLINT, Dom.ZERO: {Dom.POS}, Dom.POS: {Dom.POS} },
-    })
+    # binary operators
+    AleoBinaryOp.ADD: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.NEG}, AbsDom.POS: AbsDom.ALLINT() },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.POS} },
+        AbsDom.POS:  { AbsDom.NEG: AbsDom.ALLINT(), AbsDom.ZERO: {AbsDom.POS}, AbsDom.POS: {AbsDom.POS} },
+    }),
+    AleoBinaryOp.ADDW: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.NEG}, AbsDom.POS: AbsDom.ALLINT() },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.POS} },
+        AbsDom.POS:  { AbsDom.NEG: AbsDom.ALLINT(), AbsDom.ZERO: {AbsDom.POS}, AbsDom.POS: {AbsDom.POS} },
+    }),
+    # AleoBinaryOp.SUB: lambda: 1/0,
+    # AleoBinaryOp.SUBW: lambda: 1/0,
+    AleoBinaryOp.MUL: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.POS}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.NEG} },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.ZERO}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.ZERO} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.POS} },
+    }),
+    AleoBinaryOp.MULW: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.POS}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.NEG} },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.ZERO}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.ZERO} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.NEG}, AbsDom.ZERO: {AbsDom.ZERO}, AbsDom.POS: {AbsDom.POS} },
+    }),
+    AleoBinaryOp.DIV: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.POS},  AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.NEG}  },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.ZERO}, AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.ZERO} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.NEG},  AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.POS}  },
+    }),
+    AleoBinaryOp.DIVW: absop({
+        AbsDom.NEG:  { AbsDom.NEG: {AbsDom.POS},  AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.NEG}  },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.ZERO}, AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.ZERO} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.NEG},  AbsDom.ZERO: set(), AbsDom.POS: {AbsDom.POS}  },
+    }),
+    # AleoBinaryOp.REM: lambda: 1/0,
+    # AleoBinaryOp.REMW: lambda: 1/0,
+    # AleoBinaryOp.POW: lambda: 1/0,
+    # AleoBinaryOp.POWW: lambda: 1/0,
+    # AleoBinaryOp.SHL: lambda: 1/0,
+    # AleoBinaryOp.SHLW: lambda: 1/0,
+    # AleoBinaryOp.SHR: lambda: 1/0,
+    # AleoBinaryOp.SHRW: lambda: 1/0,
+    # AleoBinaryOp.MOD: lambda: 1/0,
+    # AleoBinaryOp.AND: lambda: 1/0,
+    # AleoBinaryOp.OR: lambda: 1/0,
+    # AleoBinaryOp.XOR: lambda: 1/0,
+    # AleoBinaryOp.NAND: lambda: 1/0,
+    # AleoBinaryOp.NOR: lambda: 1/0,
+    # AleoBinaryOp.GT: lambda: 1/0,
+    AleoBinaryOp.GTE: absop({
+        AbsDom.NEG:  { AbsDom.NEG: AbsDom.ALLBOOL(), AbsDom.ZERO: {AbsDom.FALSE}, AbsDom.POS: {AbsDom.FALSE} },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.TRUE},  AbsDom.ZERO: {AbsDom.TRUE},  AbsDom.POS: {AbsDom.FALSE} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.TRUE},  AbsDom.ZERO: {AbsDom.TRUE}, AbsDom.POS: AbsDom.ALLBOOL() },
+    }),
+    # AleoBinaryOp.LT: lambda: 1/0,
+    # AleoBinaryOp.LTE: lambda: 1/0,
 
-    MUL = generate_absop({
-        Dom.NEG:  { Dom.NEG: {Dom.POS}, Dom.ZERO: {Dom.ZERO}, Dom.POS: {Dom.NEG} },
-        Dom.ZERO: { Dom.NEG: {Dom.ZERO}, Dom.ZERO: {Dom.ZERO}, Dom.POS: {Dom.ZERO} },
-        Dom.POS:  { Dom.NEG: {Dom.NEG}, Dom.ZERO: {Dom.ZERO}, Dom.POS: {Dom.POS} },
-    })
+    # is operators
+    AleoIsOp.NEQ: absop({
+        AbsDom.NEG:  { AbsDom.NEG: AbsDom.ALLBOOL(), AbsDom.ZERO: {AbsDom.TRUE},  AbsDom.POS: {AbsDom.TRUE} },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.TRUE},  AbsDom.ZERO: {AbsDom.FALSE}, AbsDom.POS: {AbsDom.TRUE} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.TRUE},  AbsDom.ZERO: {AbsDom.TRUE},  AbsDom.POS: AbsDom.ALLBOOL() },
+        AbsDom.FALSE:{ AbsDom.FALSE: {AbsDom.FALSE}, AbsDom.TRUE: {AbsDom.TRUE} },
+        AbsDom.TRUE: { AbsDom.FALSE: {AbsDom.TRUE},  AbsDom.TRUE: {AbsDom.FALSE} },
+    }),
+    AleoIsOp.EQ: absop({
+        AbsDom.NEG:  { AbsDom.NEG: AbsDom.ALLBOOL(), AbsDom.ZERO: {AbsDom.FALSE}, AbsDom.POS: {AbsDom.FALSE} },
+        AbsDom.ZERO: { AbsDom.NEG: {AbsDom.FALSE}, AbsDom.ZERO: {AbsDom.TRUE},  AbsDom.POS: {AbsDom.FALSE} },
+        AbsDom.POS:  { AbsDom.NEG: {AbsDom.FALSE}, AbsDom.ZERO: {AbsDom.FALSE}, AbsDom.POS: AbsDom.ALLBOOL() },
+    }),
+}
+    
+# abstract wrapper
+def a(node):
+    match node:
+        # NOTE: match abstract literal first, before concrete literal
+        case AleoAbstractLiteral():
+            return node
+        case AleoLiteral():
+            return AleoAbstractLiteral.abs(node)
+        case _:
+            raise NotImplementedError(f"Can't wrap a non-literal, got: {node}")
 
-    DIV = generate_absop({
-        Dom.NEG:  { Dom.NEG: {Dom.POS},  Dom.ZERO: set(), Dom.POS: {Dom.NEG} },
-        Dom.ZERO: { Dom.NEG: {Dom.ZERO}, Dom.ZERO: set(), Dom.POS: {Dom.ZERO} },
-        Dom.POS:  { Dom.NEG: {Dom.NEG},  Dom.ZERO: set(), Dom.POS: {Dom.POS} },
-    })
-
-    GTE = generate_absop({
-        Dom.NEG:  { Dom.NEG: Val.ALLBOOL, Dom.ZERO: {Dom.FALSE}, Dom.POS: {Dom.FALSE} },
-        Dom.ZERO: { Dom.NEG: {Dom.TRUE},  Dom.ZERO: {Dom.TRUE},  Dom.POS: {Dom.FALSE} },
-        Dom.POS:  { Dom.NEG: {Dom.TRUE},  Dom.ZERO: {Dom.TRUE}, Dom.POS: Val.ALLBOOL },
-    })
-
-    ISNEQ = generate_absop({
-        Dom.NEG:  { Dom.NEG: Val.ALLBOOL, Dom.ZERO: {Dom.TRUE},  Dom.POS: {Dom.TRUE} },
-        Dom.ZERO: { Dom.NEG: {Dom.TRUE},  Dom.ZERO: {Dom.FALSE}, Dom.POS: {Dom.TRUE} },
-        Dom.POS:  { Dom.NEG: {Dom.TRUE},  Dom.ZERO: {Dom.TRUE},  Dom.POS: Val.ALLBOOL },
-        Dom.FALSE:{ Dom.FALSE: {Dom.FALSE}, Dom.TRUE: {Dom.TRUE} },
-        Dom.TRUE: { Dom.FALSE: {Dom.TRUE},  Dom.TRUE: {Dom.FALSE} },
-    })
-
-    ISEQ = generate_absop({
-        Dom.NEG:  { Dom.NEG: Val.ALLBOOL, Dom.ZERO: {Dom.FALSE}, Dom.POS: {Dom.FALSE} },
-        Dom.ZERO: { Dom.NEG: {Dom.FALSE}, Dom.ZERO: {Dom.TRUE},  Dom.POS: {Dom.FALSE} },
-        Dom.POS:  { Dom.NEG: {Dom.FALSE}, Dom.ZERO: {Dom.FALSE}, Dom.POS: Val.ALLBOOL },
-    })
-
-def detector_divz(env: AleoEnvironment, pid: str, fid: str):
-
+def detector_divz(env: AleoEnvironment, pid: str, fid: str, readable=False):
+    # initialize
+    prog: AleoProgram = env.programs[pid]
+    func: AleoFunction = prog.functions[fid]
+    
     # store problematic instructions
     lines = []
 
-    # create linked visitor
-    def visitor(pid: str, fid: str, inps: list, finalize=False):
-        """Visit a program's function with inputs
-        Arguments:
-        - pid (str): id of program to visit
-        - fid (str): id of function/closure to visit
-        - inps (list): inputs to function
-        - finalize (bool): whether or not to visit the finalize block instead
-        """
-        # load function
-        pr = env.programs[pid]
+    # FIXME: get better naming for pid and fid
+    def visitor(pid, fid, inps: list, finalize=False):
+        
+        # determine block
         fn = None
-        if fid in pr.functions.keys():
+        if fid in env.programs[pid].functions.keys():
             if finalize:
-                fn = pr.functions[fid]["finalize"]
+                fn = env.programs[pid].functions[fid].finalize
             else:
-                fn = pr.functions[fid]
+                fn = env.programs[pid].functions[fid]
         else:
+            fn = env.programs[pid].closures[fid]
             assert not finalize, f"Closure {fid} doesn't have a finalize block"
-            fn = pr.closures[fid]
-        assert len(inps) == len(fn["inputs"]), f"Numbers of arguments mismatch, expected: {len(fn["inputs"])}, got: {len(inps)}"
-
+        
+        assert len(fn.inputs) == len(inps), \
+            f"Argument lengths mismatch, expected: {len(fn.inputs)}, got:{len(inps)}"
         # create local context
-        # SYNTAX: function input is always register
-        ctx = {
-            fn["inputs"][i][0] : inps[i]
-            for i in range(len(inps))
-        }
+        ctx = { fn.inputs[i][0] : inps[i] for i in range(len(fn.inputs))}
 
         # interpret
-        for inst in fn["instructions"]:
+        for inst in fn.instructions:
             print(f"# [debug] inst: {inst}")
             match inst:
 
-                # special instruction that triggers the detector
-                case [op, d0, d1, r0] if op in {"div", "div.w"}:
-                    # get
-                    pd0, pd1 = env.rget(pid, d0, ctx=ctx, vfn=fabs), env.rget(pid, d1, ctx=ctx, vfn=fabs)
+                case AleoBinary() | AleoIs():
+                    av0 = a(env.mget(pid, inst.operands[0], ctx=ctx))
+                    av1 = a(env.mget(pid, inst.operands[1], ctx=ctx))
                     # detect
-                    if Dom.ZERO in pd1:
-                        lines.append(inst)
-                    # compute, both sharing DIV abstract op
-                    pr0 = AbsOp.DIV(pd0, pd1)
-                    # set
-                    env.rset(pid, r0, pr0, ctx=ctx)
-
-                # regular instruction
-                case [op, d0, d1, r0] if op in \
-                    {"is.neq", "is.eq", "add", "mul"}:
-                    # get
-                    pd0, pd1 = env.rget(pid, d0, ctx=ctx, vfn=fabs), env.rget(pid, d1, ctx=ctx, vfn=fabs)
+                    if inst.op in {AleoBinaryOp.DIV, AleoBinaryOp.DIVW}:
+                        if AbsDom.ZERO in av1.value:
+                            if readable:
+                                lines.append(f"{inst}")
+                            else:
+                                lines.append(inst)
                     # compute
-                    OP = op.replace(".", "").upper()
-                    pr0 = getattr(AbsOp, OP)(pd0, pd1)
-                    # set
-                    env.rset(pid, r0, pr0, ctx=ctx)
+                    ao = AleoAbstractLiteral.ops[inst.op](av0, av1)
+                    env.mset(pid, inst.regacc, ao, ctx=ctx)
 
-                case ["ternary", d0, d1, d2, r0]:
-                    # get
-                    pd0 = env.rget(pid, d0, ctx=ctx, vfn=fabs)
-                    pd1 = env.rget(pid, d1, ctx=ctx, vfn=fabs)
-                    pd2 = env.rget(pid, d2, ctx=ctx, vfn=fabs)
+                case AleoTernary():
+                    av0 = a(env.mget(pid, inst.operands[0], ctx=ctx))
+                    av1 = a(env.mget(pid, inst.operands[1], ctx=ctx))
+                    av2 = a(env.mget(pid, inst.operands[2], ctx=ctx))
                     # compute
-                    pr0 = set()
-                    if Dom.TRUE in pd0:
-                        pr0.update(pd1)
-                    if Dom.FALSE in pd0:
-                        pr0.update(pd2)
+                    ao = AleoAbstractLiteral(set(), AleoAbstractType())
+                    if AbsDom.TRUE in av0.value:
+                        ao.value.update(av1.value)
+                    if AbsDom.FALSE in av0.value:
+                        ao.value.update(av2.value)
                     # set
-                    env.rset(pid, r0, pr0, ctx=ctx)
-                
-                # skipped instruction
-                case ["assert.eq", *vs]:
-                    # no ctx change, skip for simplicity
+                    env.mset(pid, inst.regacc, ao, ctx=ctx)
+
+                case AleoAssert():
+                    # no ctx change, skip
                     pass
 
-                case ["call", *vs]:
-                    # extract call components
-                    idx_into = inst.index("into")
-                    l0 = inst[1]
-                    ds = inst[2:idx_into]
-                    rs = inst[idx_into+1:]
+                case AleoCall():
                     # collect parameters
-                    params = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
+                    params = [ env.mget(pid, p, ctx=ctx) for p in inst.operands ]
                     # locate function
-                    p, f = env.locate_fc(pid, l0)
+                    (_pid, _fid) = env.resolve_function(pid, inst.callee)
                     # dispatch
-                    outs = visitor(p, f, params)
+                    outs = visitor(_pid, _fid, params)
                     # update ctx
-                    assert len(outs) == len(rs), f"Lengths mismatch of return, expected: {len(rs)}, got: {len(outs)}"
-                    for r, o in zip(rs, outs):
-                        env.rset(pid, r, o, ctx=ctx)
+                    assert len(outs) == len(inst.regaccs), \
+                        f"Lengths of return mismatch, expected: {(len(inst.regaccs))}, got: {len(outs)}"
+                    for r,o in zip(inst.regaccs, outs):
+                        env.mset(pid, r, o, ctx=ctx)
 
-                case ["async", l0, *ds, r0]:
-                    # async in Aleo is finalize in Leo
-                    assert l0 == fid, f"Async id does not match function id, expected: {fid}, got: {l0}"
+                case AleoAsync():
+                    # NOTE: async in Aleo is finalize in Leo
+                    assert inst.callee == fid, \
+                        f"Async id doesn't match function id, expected: {fid}, got: {inst.callee}"
                     # collect parameters
-                    params = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
+                    params = [ env.mget(pid, p, ctx=ctx) for p in inst.operands ]
                     # locate function
-                    p, f = env.locate_fc(pid, l0)
-                    # dispatch to finalize function
-                    outs = visitor(p, f, params, finalize=True)
-                    assert len(outs) == 1, f"Length of async return is always one, got: {len(outs)}"
+                    (_pid, _fid) = env.resolve_function(pid, inst.callee)
+                    # dispatch
+                    outs = visitor(_pid, _fid, params, finalize=True)
                     # update ctx
-                    env.rset(pid, r0, outs[0], ctx=ctx)
+                    assert len(outs) == 1, \
+                        f"Lengths of return mismatch, expected: 1, got: {len(outs)}"
+                    env.mset(pid, inst.regacc, outs[0], ctx=ctx)
 
-                case ["set", d0, m0, d1]:
-                    # set d0 into m0[d1]
-                    # SYNTAX: m0 is identifier of mapping
-                    # set all, as d1 may be abstract already
-                    # so here we collect all possible values
-                    # and set the mapping as defaultdict
-                    pd0 = env.rget(pid, d0, ctx=ctx, vfn=fabs)
-                    # collect all possible values
-                    pm0 = env.rget(pid, m0, ctx=None) # mapping, don't apply fabs
-                    ss = set(pm0.values()) | pd0 # merge existing
+                case AleoSet():
+                    _src = a(env.mget(pid, inst.src, ctx=ctx))
+                    # collect all possible values of mapping
+                    _map = env.mget(pid, inst.id, ctx=None) # mapping, don't abstract
+                    _vv = set([p.value for p in _map.values()]) | _src.value # merge existing
+                    _ss = AleoAbstractLiteral(_vv, AleoAbstractType())
                     # set mapping as defaultdict
-                    pr.mem[m0] = defaultdict(lambda: ss)
+                    env.mset(pid, inst.id, defaultdict(lambda: _ss), ctx=None)
 
-                case ["cast", *ds, "into", r0, "as", dest0]:
-                    # get
-                    pds = [ env.rget(pid, d, ctx=ctx, vfn=fabs) for d in ds ]
-                    # analyze cast destination
-                    it = None
-                    match dest0:
-                        case s if isinstance(s, str):
-                            # identifier as type, usually struct or record
-                            # FIXME: find struct first, then records
-                            if s in pr.struct_constructors.keys():
-                                it = pr.struct_constructors[s](*pds)
-                            elif s in pr.record_constructors.keys():
-                                it = pr.record_constructors[s](*pds)
-                            else:
-                                raise Exception(f"Can't locate struct/record, got: {s}")
-                        case ["register_type", t0, p0]:
-                            # SYNTAX: p0 can be .future or .record
-                            # FIXME: ignore modifier p0
-                            # FIXME: find struct first, then records
-                            if t0 in pr.struct_constructors.keys():
-                                it = pr.struct_constructors[t0](*pds)
-                            elif t0 in pr.record_constructors.keys():
-                                it = pr.record_constructors[t0](*pds)
-                            else:
-                                raise Exception(f"Can't locate struct/record, got: {t0}")
-                        case ["array_type", t0, shape0]:
-                            assert len(shape0) == 1, f"Only 1-d array destination is supported for now, got: {dest0}"
-                            assert len(pds) == shape0[0], f"Mismatch with array length, expected: {shape0[0]}, got: {len(pds)}"
-                            it = pds # pds is a list/array already
-                        case ["unsigned_type", t0]:
-                            # cast to number
-                            assert len(ds) == 1, f"{t0} type can only have 1 operand, got: {len(ds)}"
-                            it = cast2int(pds[0])
-                        # FIXME: add more patterns
-                        case _:
-                            raise NotImplementedError(f"Unsupported cast destination, got: {dest0}")
-                    # set
-                    env.rset(pid, r0, it, ctx=ctx)
-
-                case ["random.chacha", *ds, r0, t0]:
-                    # overapproximate
-                    env.rset(pid, r0, Val.ALLINT, ctx=ctx)
-                
                 case _:
                     raise NotImplementedError(f"Unsupported instruction, got: {inst}")
         
-        # pack and return
-        if finalize:
-            # return all bool for safe
-            return [Val.ALLBOOL]
+        if isinstance(fn, AleoFinalize):
+            # finalize: no output, return all bool for safe
+            return [AleoAbstractLiteral(AbsDom.ALLBOOL(), AleoAbstractType())]
         else:
-            return [ env.rget(pid, p[0], ctx, vfn=fabs) for p in fn["outputs"] ]
-
-    # prepare to visit
-    prog = env.programs[pid]
-    func = prog.functions[fid] if fid in prog.functions.keys() else prog.closures[fid]
-    # call visitor
-    visitor(
-        pid,
-        fid,
-        [
-            Val.ALLINT # FIXME: determine values by type
-            for i in range(len(func["inputs"]))
-        ]
-    )
-
+            # closure/function: return
+            return [ a(env.mget(pid, k, ctx=ctx)) for k,v in fn.outputs ]
+    
+    # FIXME: construct params according to types (could also be struct/record/mapping/etc.)
+    params = [
+        AleoAbstractLiteral(AbsDom.TOP(), AleoAbstractType()) 
+        for _ in range(len(func.inputs))
+    ]
+    visitor(pid, fid, params)
     return (len(lines)>0, lines)

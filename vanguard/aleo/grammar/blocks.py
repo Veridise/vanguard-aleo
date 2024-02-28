@@ -35,95 +35,103 @@ class AleoEnvironment(AleoNode):
         p = AleoProgram.from_json(node[1])
         self.programs[p.id] = p
         return p
+    
+    def resolve_function(self, pid, callee):
+        _pid = None
+        _fid = None
+        match callee:
+            case AleoIdentifier():
+                _pid = pid
+                _fid = callee
+            case AleoLocator():
+                _pid = callee.pid
+                _fid = callee.id
+            case _:
+                raise NotImplementedError(f"Unsupported callee, got: {callee}")
+        assert _pid in self.programs.keys(), f"Cannot locate program, got: {_pid}"
+        if _fid in self.programs[_pid].functions.keys() or _fid in self.programs[_pid].closures.keys():
+            return (_pid, _fid)
+        else:
+            raise NotImplementedError(f"Cannot locate function/closure, got: {_fid}")
+    
+    def mget(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], ctx: dict=None):
+        match id:
 
-    # def locate_fc(self, pid: str, node: Union[str, dict, list]):
-    #     """Locate a function/closure from the environment"""
-    #     match node:
-    #         case s if isinstance(s, str):
-    #             assert pid in self.programs.keys(), f"Can't find program {pid}"
-    #             assert s in self.programs[pid].functions.keys() or\
-    #                    s in self.programs[pid].closures.keys(),\
-    #                    f"Can't find function/closure {s} in program {pid}"
-    #             return (pid, s)
-    #         case ["locator", ["program_id", ["program_name", p], ["program_domain", d]], f]:
-    #             pid = f"{p}.{d}"
-    #             assert pid in self.programs.keys(), f"Can't find program {pid}"
-    #             assert f in self.programs[pid].functions.keys() or\
-    #                    f in self.programs[pid].closures.keys(),\
-    #                     f"Can't find function/closure {f} in program {pid}"
-    #             return (pid, f)
-    #         case _: 
-    #             raise NotImplementedError(f"Unsupported function locator, got: {node}")
-
-    # def resolve(self, node: Union[dict, list], kfn=lambda x:x, vfn=lambda x:x):
-    #     """Resolve given node into key of memory/ctx or literal value"""
-    #     match node:
-    #         case s if isinstance(s, str):
-    #             # this is usually identifier
-    #             return ("key", kfn(s))
-    #         case ["boolean_literal", v0]:
-    #             return ("val", vfn(v0))
-    #         case ["address_literal", v0]:
-    #             return ("val", vfn(v0))
-    #         case ["register_access", r0]:
-    #             return ("key", kfn(r0))
-    #         case ["unsigned_literal", v0, t0]:
-    #             return ("val", vfn(v0))
-    #         case ["field_literal", v0, t0]:
-    #             return ("val", vfn(v0))
-    #         case ["register_access", r0, ["register_accessor", ["u32_literal", r1]]]:
-    #             # access path for array with literal accessor
-    #             # e.g., r1[0u32]
-    #             return ("path", kfn(r0), kfn(r1))
-    #         case ["register_access", r0, ["register_accessor", r1]]:
-    #             # access path for array with other accessor, or structr/record with accessor
-    #             # e.g., r1.a, r1[r2]
-    #             return ("path", kfn(r0), kfn(r1))
-    #         case _:
-    #             raise NotImplementedError(f"Unsupported node to resolve, got: {node}")
+            case AleoRegister() | AleoIdentifier():
+                # flat
+                if ctx is None or id not in ctx.keys():
+                    return self.programs[pid].mem[id]
+                else:
+                    return ctx[id]
+                
+            case AleoRegisterAccess():
+                # potentially nested
+                # determine the base
+                base = None
+                if ctx is None or id.reg not in ctx.keys():
+                    # NOTE: check first layer, if not matched, proceed at ctx
+                    base = self.programs[pid].mem[id.reg]
+                else:
+                    base = ctx[id.reg]
+                # walk down the path
+                for p in id.accs:
+                    match p:
+                        case AleoAccessByField():
+                            base = base[p.value]
+                        case AleoAccessByIndex():
+                            base = base[p.value]
+                        case _:
+                            raise NotImplementedError(f"Unsupported accessor, got: {p}")
+                return base
             
-    # def rget(self, pid: str, node: Union[dict, list], ctx: dict = None, kfn=lambda x:x, vfn=lambda x:x):
-    #     """Resolve and then get"""
-    #     pt = self.resolve(node, kfn=kfn, vfn=vfn)
-    #     match pt:
-    #         case ("key", r0):
-    #             return self.mget(pid, r0, ctx=ctx)
-    #         case ("val", v0):
-    #             return v0
-    #         case ("path", v0, v1):
-    #             # v1 is accessor, which is plain text already
-    #             item = self.mget(pid, v0, ctx=ctx)
-    #             acc = v1
-    #             return item[acc]
-    #         case _:
-    #             raise NotImplementedError(f"Unsupported node, got: {node}")
+            # if literal, directly resolve
+            case AleoLiteral():
+                return id
             
-    # def rset(self, pid: str, node: Union[dict, list], val: Any, ctx: dict = None, kfn=lambda x:x, vfn=lambda x:x):
-    #     """Resolve and then set"""
-    #     pt = self.resolve(node, kfn=kfn, vfn=vfn)
-    #     match pt:
-    #         case ("key", r0):
-    #             self.mset(pid, r0, val, ctx=ctx)
-    #         case _:
-    #             raise NotImplementedError(f"Unsupported node, got: {node}")
+            case _:
+                raise NotImplementedError(f"Unsupported type of id, got: {id} of type {type(id)}")
+            
 
-    # def mget(self, pid: str, id: str, ctx: dict = None):
-    #     if ctx is None:
-    #         return self.programs[pid].mem[id]
-    #     else:
-    #         if id in ctx.keys():
-    #             return ctx[id]
-    #         else:
-    #             return self.programs[pid].mem[id]
+    def mset(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], val: AleoLiteral, ctx: dict=None):
+        match id:
 
-    # def mset(self, pid: str, id: str, val: Any, ctx: dict = None):
-    #     if ctx is None:
-    #         self.programs[pid].mem[id] = val
-    #     else:
-    #         if id in ctx.keys():
-    #             ctx[id] = val
-    #         else:
-    #             self.programs[pid].mem[id] = val
+            case AleoRegister() | AleoIdentifier():
+                # flat
+                if ctx is None or id not in ctx.keys():
+                    self.programs[pid].mem[id] = val
+                else:
+                    ctx[id] = val
+            
+            case AleoRegisterAccess() if len(id.accs) == 0:
+                # no accessor, same as single register
+                if ctx is None or id not in ctx.keys():
+                    self.programs[pid].mem[id.reg] = val
+                else:
+                    ctx[id.reg] = val
+
+            case AleoRegisterAccess():
+                # potentially nested
+                # determine the last but one base
+                lbobase = None
+                if ctx is None or id.reg not in ctx.keys():
+                    # NOTE: check first layer, if not matched, proceed at ctx
+                    lbobase = self.programs[pid].mem[id.reg]
+                else:
+                    lbobase = ctx[id.reg]
+                # walk down the path, with the last one left
+                for p in id.accs[:-1]:
+                    match p:
+                        case AleoAccessByField():
+                            lbobase = lbobase[p.value]
+                        case AleoAccessByIndex():
+                            lbobase = lbobase[p.value]
+                        case _:
+                            raise NotImplementedError(f"Unsupported accessor, got: {p}")
+                # set the last
+                lbobase[id.accs[-1]] = val
+            
+            case _:
+                raise NotImplementedError(f"Unsupported type of id, got: {id}")
 
 class AleoProgram(AleoNode):
     """A virtual machine that prepare Aleo program for future use and provides common functionalities
@@ -176,7 +184,11 @@ class AleoProgram(AleoNode):
         self.functions = functions
         self.closures = closures
 
+        # initialize memory
         self.reset_memory()
+        # initialize mapping
+        for key in self.mappings.keys():
+            self.mem[key] = {}
 
     def reset_memory(self):
         self.mem = {}
@@ -191,33 +203,6 @@ class AleoProgram(AleoNode):
         _functions = "\n\n".join([str(p) for p in self.functions.values()])
         _components = "\n\n".join(filter(None, [_imports, _id, _structs, _records, _mappings, _closures, _functions]))
         return f"{_components}"
-        
-    # def init(self):
-    #     """Initialize program components"""
-    #     # # load mapping into memory
-    #     # for dname in self.mappings.keys():
-    #     #     self.mem[dname] = {}
-
-    #     # # initialize struct constructors
-    #     # for dname in self.structs.keys():
-    #     #     sfields = list(self.structs[dname].keys())
-    #     #     # NOTE: err with insufficient args length, ignore extra args
-    #     #     # beware of lambda local
-    #     #     # see: https://stackoverflow.com/questions/10452770/python-lambdas-binding-to-local-values
-    #     #     self.struct_constructors[dname] = \
-    #     #         lambda *args: { sfields[i] : args[i] for i in range(len(sfields)) }
-            
-    #     # # initialize record constructors
-    #     # for dname in self.records.keys():
-    #     #     rfields = list(self.records[dname].keys())
-    #     #     # NOTE: err with insufficient args length, ignore extra args
-    #     #     # beware of lambda local
-    #     #     # see: https://stackoverflow.com/questions/10452770/python-lambdas-binding-to-local-values
-    #     #     self.record_constructors[dname] = \
-    #     #         lambda *args: { rfields[i] : args[i] for i in range(len(rfields)) }
-            
-    #     # TODO: initialize more later
-    #     pass
 
 class AleoImport(AleoNode):
     @staticmethod
@@ -270,6 +255,10 @@ class AleoStruct(AleoNode):
         _id = f"struct {self.id}:"
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
+    
+    def instantiate(self, params: list):
+        _keys = self.fields.keys()
+        return { _keys[i] : params[i]  for i in range(len(_keys)) }
 
 class AleoMapping(AleoNode):
 
@@ -332,6 +321,10 @@ class AleoRecord(AleoNode):
         _id = f"record {self.id}:"
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
+    
+    def instantiate(self, params: list):
+        _keys = self.fields.keys()
+        return { _keys[i] : params[i]  for i in range(len(_keys)) }
 
 class AleoFunction(AleoNode):
 

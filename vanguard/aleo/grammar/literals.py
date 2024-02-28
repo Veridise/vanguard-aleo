@@ -95,6 +95,8 @@ class AleoIntegerLiteral(AleoArithmeticLiteral):
         match node:
             case ["integer_literal", ["unsigned_literal", *_]]:
                 return AleoUnsignedLiteral.from_json(node[1])
+            case ["integer_literal", ["signed_literal", *_]]:
+                return AleoSignedLiteral.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -112,14 +114,38 @@ class AleoFieldLiteral(AleoArithmeticLiteral):
         match node:
             case ["field_literal", sign, *digits, type]:
                 from .types import AleoFieldType
-                assert sign is None or sign == "-", f"Unsupported sign of field literal, got: {sign}"
+                assert sign is None or sign == "-", f"Unsupported sign of literal, got: {sign}"
                 ls = [] if sign is None else ["-"]
                 for p in digits:
-                    assert p[0] == "digit", f"Unsupported digit of u32 literal, got: {p}"
+                    assert p[0] == "digit", f"Unsupported digit of literal, got: {p}"
                     ls.append(p[1])
                 v = int("".join(ls))
                 _type = AleoFieldType.from_json(type)
                 return AleoFieldLiteral(v, _type)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)     
+
+    def __str__(self):
+        return f"{self.value}{self.type}"
+    
+class AleoSignedLiteral(AleoIntegerLiteral):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["field_literal", sign, *digits, type]:
+                from .types import AleoSignedType
+                assert sign is None or sign == "-", f"Unsupported sign of literal, got: {sign}"
+                ls = [] if sign is None else ["-"]
+                for p in digits:
+                    assert p[0] == "digit", f"Unsupported digit of literal, got: {p}"
+                    ls.append(p[1])
+                v = int("".join(ls))
+                _type = AleoSignedType.from_json(type)
+                return AleoSignedLiteral(v, _type)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -137,10 +163,10 @@ class AleoUnsignedLiteral(AleoIntegerLiteral):
             case ["unsigned_literal", sign, *vs, type]:
                 from .types import AleoUnsignedType
                 # vs: digits
-                assert sign is None, f"Unsupported sign of unsigned literal, expected: None, got: {sign}"
+                assert sign is None, f"Unsupported sign of literal, expected: None, got: {sign}"
                 ls = []
                 for p in vs:
-                    assert p[0] == "digit", f"Unsupported digit of u32 literal, got: {p}"
+                    assert p[0] == "digit", f"Unsupported digit of literal, got: {p}"
                     ls.append(p[1])
                 v = int("".join(ls))
                 _type = AleoUnsignedType.from_json(type)
@@ -163,10 +189,10 @@ class AleoU32Literal:
             case ["u32_literal", sign, *vs, "u32"]:
                 from .types import AleoU32Type
                 # vs: digits
-                assert sign is None or sign == "-", f"Unsupported sign of u32 literal, got: {sign}"
+                assert sign is None or sign == "-", f"Unsupported sign of literal, got: {sign}"
                 ls = [] if sign is None else ["-"]
                 for p in vs:
-                    assert p[0] == "digit", f"Unsupported digit of u32 literal, got: {p}"
+                    assert p[0] == "digit", f"Unsupported digit of literal, got: {p}"
                     ls.append(p[1])
                 v = int("".join(ls))
                 return AleoUnsignedLiteral(v, AleoU32Type())
