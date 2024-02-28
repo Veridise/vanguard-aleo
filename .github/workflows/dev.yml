@@ -19,6 +19,7 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test hello.py
               run: python tests/scripts/hello.py
             - name: test dep.py
@@ -35,6 +36,7 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test parsing.py
               run: PYTHONPATH="./" python ./tests/scripts/parsing.py
 
@@ -49,6 +51,7 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test divz
               run: PYTHONPATH="./" python ./tests/scripts/test-divz.py
 
@@ -63,6 +66,7 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test infoleak
               run: PYTHONPATH="./" python ./tests/scripts/test-infoleak.py
     
@@ -77,6 +81,7 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test rtcnst
               run: PYTHONPATH="./" python ./tests/scripts/test-rtcnst.py
     
@@ -91,5 +96,6 @@ jobs:
               run: |
                 pip install networkx[default]
                 pip install lark
+                pip install beautifulsoup4
             - name: test unused
               run: PYTHONPATH="./" python ./tests/scripts/test-unused.py

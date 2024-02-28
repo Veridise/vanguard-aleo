@@ -14,8 +14,8 @@ def detector_infoleak(env: AleoEnvironment, pid: str, fid: str, readable=False):
         edges.append((k, k))
 
     # DEBUG
-    for p in edges:
-        print(f"{p[0]} -> {p[1]}")
+    # for p in edges:
+    #     print(f"{p[0]} -> {p[1]}")
 
     prv_inps = [k for k,v in func.inputs if v.visibility in {AleoModifier.PRIVATE, AleoModifier.DEFAULT}]
     pub_outs = [k for k,v in func.outputs if v.visibility==AleoModifier.PUBLIC]
@@ -25,7 +25,7 @@ def detector_infoleak(env: AleoEnvironment, pid: str, fid: str, readable=False):
 
     paths = []
     for sig_in in prv_inps:
-        print(f"# [debug] sig_in: {sig_in}")
+        # print(f"# [debug] sig_in: {sig_in}")
         if not G.has_node(sig_in):
             # signal is not in graph, meaning it's not used
             # since it's not used, it's not leaked

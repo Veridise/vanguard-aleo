@@ -182,7 +182,7 @@ def detector_divz(env: AleoEnvironment, pid: str, fid: str, readable=False):
 
         # interpret
         for inst in fn.instructions:
-            print(f"# [debug] inst: {inst}")
+            # print(f"# [debug] inst: {inst}")
             match inst:
 
                 case AleoBinary() | AleoIs():
@@ -268,7 +268,6 @@ def detector_divz(env: AleoEnvironment, pid: str, fid: str, readable=False):
                             #       the visibility of the location it refers to
                             if _id.visibility == AleoModifier.RECORD:
                                 # record type specified
-                                print(f"# [debug] _pid={_pid}, id={_id.id}, vis={_id.visibility}")
                                 ao = _pr.records[_id].instantiate(avs)
                             elif _id.visibility == AleoModifier.DEFAULT:
                                 # regular typing, first try struct, then record

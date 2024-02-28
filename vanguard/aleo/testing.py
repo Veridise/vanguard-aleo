@@ -4,35 +4,34 @@ import json
 
 from bs4 import BeautifulSoup
 
-from .common import aleo2json
-from .grammar import AleoProgram
-from .detectors.infoleak import detector_infoleak
-from .detectors.rtcnst import detector_rtcnst
-from .detectors.unused import detector_unused
-from .detectors.divz import detector_divz
-from .detectors.divrd import detector_divrd
+from .grammar import AleoEnvironment
 
-def run_test_suite(path, detector):
-    obj = aleo2json(path)
-    ap = AleoProgram(json=obj)
+def run_test_suite(build_path, detector, verbose=False):
+    env = AleoEnvironment(build_path)
 
     # locate the vanguard_helper function and retrieve the label info
-    vanguard_helper = ap.sjson["functions"]["vanguard_helper"]
-    raw_labels = vanguard_helper["instructions"][0]["value"]["operands"]
-    
-    # parse labels
-    expected_labels = [p["value"]["value"]["boolean"] for p in raw_labels]
-    expected_infos = [] # FIXME: add support for this
+    expected_labels = env.main.functions["vanguard_helper"].instructions[0].operands
+    expected_labels = [ p.value for p in expected_labels ]
+    expected_infos = [] # FIXME: add support when available
 
     # run detector on all benchmarks, and compare
     actual_labels = []
     actual_infos = []
+    ncorrect = 0
     for i in range(len(expected_labels)):
         # call detector directly
-        label, info = detector(ap, f"ex{i}")
+        label, info = detector(env, env.main.id, f"ex{i}")
         actual_labels.append(label)
         actual_infos.append(info)
+        result = "✗"
+        if label == expected_labels[i]:
+            result = "✓"
+            ncorrect += 1
+        if verbose:
+            print(f"# [{result}][test] pid: {env.main.id}, fid: ex{i}, expected: {expected_labels[i]}, actual: {label}")
 
+    if verbose:
+        print(f"# [test] accuracy: {ncorrect}/{len(actual_labels)} ({ncorrect/len(actual_labels):.4f})")
     return (expected_labels, expected_infos, actual_labels, actual_infos)
 
 def crawl_from_haruka_explorer(istart, iend, folder):

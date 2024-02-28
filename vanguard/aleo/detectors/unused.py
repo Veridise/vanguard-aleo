@@ -11,8 +11,8 @@ def detector_unused(env: AleoEnvironment, pid: str, fid: str, readable=False):
     edges = get_dfg_edges(env, pid, fid)
 
     # DEBUG
-    for p in edges:
-        print(f"{p[0]} -> {p[1]}")
+    # for p in edges:
+    #     print(f"{p[0]} -> {p[1]}")
 
     inps = [k for k,v in func.inputs]
     outs = [k for k,v in func.outputs]
@@ -22,7 +22,7 @@ def detector_unused(env: AleoEnvironment, pid: str, fid: str, readable=False):
 
     vars = []
     for sig_in in inps:
-        print(f"# [debug] sig_in: {sig_in}")
+        # print(f"# [debug] sig_in: {sig_in}")
         if not G.has_node(sig_in):
             # signal is not in graph, meaning it's not used
             if readable:
