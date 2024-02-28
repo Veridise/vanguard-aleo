@@ -15,5 +15,11 @@ jobs:
             - uses: actions/setup-python@v5
               with:
                 python-version: '3.12'
+            - name: install dependencies
+              run: |
+                pip install networkx[default]
+                pip install lark
             - name: test hello.py
               run: python tests/scripts/hello.py
+            - name: test dep.py
+              run: python tests/scripts/dep.py
