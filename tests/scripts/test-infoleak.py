@@ -1,5 +1,5 @@
 from vanguard.aleo.grammar import AleoEnvironment
-from vanguard.aleo.detectors.infoleak import detector_infoleak
+from vanguard.aleo.detectors import detector_infoleak
 
 if __name__ == "__main__":
     project_name = "infoleak0"

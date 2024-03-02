@@ -1,5 +1,5 @@
 from vanguard.aleo.grammar import AleoEnvironment
-from vanguard.aleo.detectors.rtcnst import detector_rtcnst
+from vanguard.aleo.detectors import detector_rtcnst
 
 if __name__ == "__main__":
     project_name = "rtcnst0"

@@ -18,7 +18,7 @@ class AleoEnvironment(AleoNode):
     def load(self, build_path: Union[str, Path], main_file: str="main.aleo"):
         path = build_path if isinstance(build_path, Path) else Path(build_path)
         # look for main.aleo and deploy
-        print(f"# [debug] deploy: {main_file}")
+        # print(f"# [debug] deploy: {main_file}")
         main_path = path / main_file
         main_json = aleo2json(main_path)
         self.main = self.deploy(main_json)

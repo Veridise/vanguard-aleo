@@ -1,5 +1,5 @@
 from vanguard.aleo.grammar import AleoEnvironment
-from vanguard.aleo.detectors.divz import detector_divz
+from vanguard.aleo.detectors import detector_divz
 
 if __name__ == "__main__":
     project_name = "divz0"

@@ -1,5 +1,5 @@
 from vanguard.aleo.grammar import AleoEnvironment
-from vanguard.aleo.detectors.unused import detector_unused
+from vanguard.aleo.detectors import detector_unused
 
 if __name__ == "__main__":
     project_name = "unused0"

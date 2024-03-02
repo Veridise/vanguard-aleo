@@ -6,7 +6,7 @@ This repo hosts an open-source Python branch of the static analysis tool Vanguar
 
 The following libraries are required for running (different components of) the tool:
 
-- Python (3.12+) for running Vanguard and its Aleo detectors
+- Python (3.10+) for running Vanguard and its Aleo detectors
   - [NetworkX](https://networkx.org/documentation/stable/install.html) (3.2.1+) for speeding up graph reachability in detectors
   - [Antlr](https://www.antlr.org/) (4.13.1) and its Python binding for loading and parsing Aleo programs
     - `pip install antlr4-python3-runtime==4.13.1`
