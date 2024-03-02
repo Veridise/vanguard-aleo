@@ -1,0 +1,13 @@
+{
+    "program": "divz0.aleo",
+    "version": "0.0.0",
+    "description": "",
+    "license": "MIT",
+    "dependencies": [
+        {
+            "name": "helpers.aleo",
+            "location": "local",
+            "path": "imports/helpers"
+        }
+    ]
+}

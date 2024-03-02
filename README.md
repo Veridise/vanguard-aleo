@@ -6,40 +6,36 @@ This repo hosts an open-source Python branch of the static analysis tool Vanguar
 
 The following libraries are required for running (different components of) the tool:
 
-- Rust (1.73+) for running `aleo2json`
 - Python (3.10+) for running Vanguard and its Aleo detectors
-  - [NetworkX](https://networkx.org/documentation/stable/install.html) (2.8.4+) for speeding up graph reachability in detectors
+  - [NetworkX](https://networkx.org/documentation/stable/install.html) (3.2.1+) for speeding up graph reachability in detectors
+  - [Antlr](https://www.antlr.org/) (4.13.1) and its Python binding for loading and parsing Aleo programs
+    - `pip install antlr4-python3-runtime==4.13.1`
+    - `pip install antlr4-tools`
+  - [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) (4.12.2+) for crawling benchmarks from public explorers in test suite
+  - [pandas](https://pandas.pydata.org/)  (2.1.4+) for data analysis in test suite
 - <u>Leo (**7ac50d8**) for compiling and running all benchmarks enclosed</u>
-
-## The Aleo to JSON Compiler
-
-Running of Vanguard for Aleo relies on a compiler that converts Aleo programs into JSON, which allows the program to be further analyzed by various tools and extensions. It's adapted from Aleo's [snarkVM](https://github.com/AleoHQ/snarkVM/). To allow Vanguard to directly process Aleo programs, we recommend installing the compiler while testing out the tool via:
-
-```bash
-git clone https://github.com/Veridise/aleo2json.git
-cd aleo2json/
-cargo install --path . --bin aleo2json
-```
-
-To remove it in the future, simply do:
-
-```bash
-cargo uninstall -p snarkvm --bin aleo2json
-```
-
-### Usage
-
-The `aleo2json` tool takes as input a path to `*.aleo` file, and directly outputs the compiled JSON, which includes enhanced information of the program and basic analysis results (e.g., variable types, visibilities, etc.):
-
-```bash
-aleo2json <path-to-aleo-file>
-```
+  - The tools is tested under this version, but newer version of Lao may also work.
 
 ## Vanguard for Aleo
 
-The library of Vanguard for Aleo provides both integration with the `aleo2json` tool, as well as basic utilities for writing detectors based on static analysis. We've also included detectors for several common vulnerabilities.
+The library of Vanguard for Aleo provides common vulnerability detectors and basic utilities for writing detectors based on static analysis. To use the tool, you can call it directly from the repo or install it as a library.
 
-### Library Usage
+### Calling from Source
+
+To call the detectors directly from source code, first make sure all prerequisites are satisfied, and call from the repo root directly:
+
+```python
+from .vanguard.aleo.grammar import AleoEnvironment
+from .vanguard.aleo.detectors import detector_divz
+
+project_name = "divz0"
+function_name = "ex1"
+build_path = f"./tests/public/{project_name}/build/"
+env = AleoEnvironment(build_path) # load project
+detector_divz(env, env.main.id, function_name, readable=True) # detect
+```
+
+### Calling as Library
 
 The analyzer can be installed via `pip` setup tools by running:
 
@@ -53,43 +49,57 @@ and if you want to remove it:
 pip uninstall vanguard
 ```
 
-You can write detectors by simply utilizing some functions provided by the analyzer. Here's an example that analyze and get all public outputs/signals from a given Aleo program:
+You can write detectors by simply utilizing some functions provided by the analyzer. Here's an example that loads a project called `divz0` and call the division-by-zero detector:
 
 ```python
-from vanguard.aleo.common import aleo2json
-from vanguard.aleo.detectors.divz import detector_divz
+from vanguard.aleo.grammar import AleoEnvironment
+from vanguard.aleo.detectors import detector_divz
 
-aleo_path = ...
-aleo_json = aleo2json(aleo_path)
-
-out, info = detector_divz(ap, "main")
+project_name = "divz0"
+function_name = "ex1"
+build_path = f"./tests/public/{project_name}/build/"
+env = AleoEnvironment(build_path) # load project
+detector_divz(env, env.main.id, function_name, readable=True) # detect
 ```
 
 ## Detectors Available
 
 ```python
-from vanguard.aleo.detectors.infoleak import detector_infoleak
-from vanguard.aleo.detectors.rtcnst import detector_rtcnst
-from vanguard.aleo.detectors.unused import detector_unused
-from vanguard.aleo.detectors.divz import detector_divz
-
+from vanguard.aleo.detectors import detector_infoleak
+from vanguard.aleo.detectors import detector_rtcnst
+from vanguard.aleo.detectors import detector_unused
+from vanguard.aleo.detectors import detector_divz
 ...
 ```
 
-(more coming soon...)
+(More coming soon...)
 
 ## Example Leo/Aleo Vulnerabilities
 
-You can find examples showing Leo/Aleo vulnerabilities with comments and annotations in projects in `tests/`:
+You can find examples showing Leo/Aleo vulnerabilities with comments and annotations in projects in `tests/public/`:
 
-| Project     | Vulnerability Description               |
-| ----------- | --------------------------------------- |
-| divrd0/     | Division round-down/truncation (part 0) |
-| divz0/      | Division by zero (part 0)               |
-| downcast0/  | Division downcast (part 0)              |
-| infoleak0/  | Information leakage (part 0)            |
-| overflow0/  | Arithmetic overflow (part 0)            |
-| rtcnst0/    | Returning constant (part 0)             |
-| underflow0/ | Arithmetic underflow (part 0)           |
-| unused0/    | Unused variable/signal (part 0)         |
+| Project     | Vulnerability Description     |
+| ----------- | ----------------------------- |
+| divrd0/     | Division truncation/rounddown |
+| divz0/      | Division by zero              |
+| downcast0/  | Type downcast                 |
+| infoleak0/  | Information leakage           |
+| overflow0/  | Arithmetic overflow           |
+| rtcnst0/    | Returning constant            |
+| underflow0/ | Arithmetic underflow          |
+| unused0/    | Unused variable/signal        |
 
+## Parser/Lexer Generation
+
+In case the parser is not compatible with your environment, you can generate it again using Antlr:
+
+```bash
+cd ./vanguard/aleo/parser/
+antlr4 -v 4.13.1 -Dlanguage=Python3 ./Aleo.g4
+```
+
+The parser/lexer file is located in `./vanguard/aleo/parser/Aleo.g4`.
+
+## Test Suite and Static Analysis APIs
+
+(Coming soon...)
