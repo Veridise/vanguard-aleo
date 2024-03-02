@@ -18,9 +18,11 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test hello.py
               run: python tests/scripts/hello.py
             - name: test dep.py
@@ -36,9 +38,11 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test parsing.py
               run: PYTHONPATH="./" python ./tests/scripts/parsing.py
 
@@ -52,9 +56,11 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test divz
               run: PYTHONPATH="./" python ./tests/scripts/test-divz.py
 
@@ -68,9 +74,11 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test infoleak
               run: PYTHONPATH="./" python ./tests/scripts/test-infoleak.py
     
@@ -84,9 +92,11 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test rtcnst
               run: PYTHONPATH="./" python ./tests/scripts/test-rtcnst.py
     
@@ -100,8 +110,10 @@ jobs:
             - name: install dependencies
               run: |
                 pip install networkx[default]
-                pip install lark
                 pip install beautifulsoup4
                 pip install pandas
+                pip install antlr4-tools
+                pip install antlr4-python3-runtime==4.13.1
+                antlr4 -v 4.13.1
             - name: test unused
               run: PYTHONPATH="./" python ./tests/scripts/test-unused.py

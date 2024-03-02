@@ -1,50 +1,35 @@
-import argparse
-import subprocess
-import logging
-import inspect
-import shlex
-import shutil
-import json
-import os
-import re
-
+from io import StringIO
 from pathlib import Path
 from typing import List, Union
-from lark import Lark, Token, Tree, Transformer, Discard
 
-# https://stackoverflow.com/questions/74550878/lark-how-to-ignore-whitespace-after-parsing
-class SpaceTransformer(Transformer):
-    def WS(self, tok: Token):
-        return Discard
-    def CWS(self, tok: Token):
-        return Discard
+from antlr4 import FileStream, CommonTokenStream, Parser
+from antlr4.Utils import escapeWhitespace
+from antlr4.tree.Trees import Trees, Tree
 
-# ref (Aleo grammar): https://developer.aleo.org/aleo/grammar/
-# ref (Aleo grammar): https://github.com/AleoHQ/grammars/blob/master/aleo.abnf
-# load a parser in the module
-with open(Path(__file__).parent.resolve() / "program-r1.lark", "r") as f:
-    raw_lark = f.read()
-parser = Lark(raw_lark)
+# ref: toStringTree method
+#      https://github.com/parrt/antlr4-python3/blob/master/src/antlr4/tree/Trees.py#L48
+@classmethod
+def toJsonTree(cls, t: Tree, ruleNames: list=None, recog: Parser=None):
+    '''Get s-expression of the parse tree in json'''
+    if recog is not None:
+        ruleNames = recog.ruleNames
+    s = escapeWhitespace(cls.getNodeText(t, ruleNames), False)
+    if t.getChildCount() == 0:
+        return s
+    ret = [s]
+    for i in range(0, t.getChildCount()):
+        ret.append(cls.toJsonTree(t.getChild(i), ruleNames))
+    return ret
+# install class method
+Trees.toJsonTree = toJsonTree
+
+from .parser.AleoLexer import AleoLexer
+from .parser.AleoParser import AleoParser
 
 def aleo2json(path: Union[str, Path]):
-    # by default, simplification is applied
-    with open(path, "r") as f:
-        raw_aleo = f.read()
-    tree0 = parser.parse(raw_aleo)
-    tree1 = SpaceTransformer().transform(tree0)
-    obj = tree2json(tree1)
-    return obj
-
-def tree2json(node):
-    if isinstance(node, Tree):
-        if node.children is None:
-            return [node.data.value]
-        else:
-            return [node.data.value] + [tree2json(p) for p in node.children]
-    elif isinstance(node, Token):
-        return node.value
-    elif node is None:
-        # None is for missed match of alternative token (epxressed in [] in lark)
-        return None
-    else:
-        raise NotImplementedError(f"Unsupported type for tree2json, got: {node}")
+    input_stream = FileStream(path)
+    lexer = AleoLexer(input_stream)
+    stream = CommonTokenStream(lexer)
+    parser = AleoParser(stream)
+    tree = parser.start()
+    return Trees.toJsonTree(tree, None, parser)

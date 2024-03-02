@@ -82,28 +82,27 @@ class AleoRandom(AleoCommand):
         return f"random.chacha {_operands} into {self.regacc} as {self.type};"
 
 class AleoInstruction(AleoCommand):
-    # FIXME: extra semicolon should be merged into sub-types, not here
 
     @staticmethod
     def from_json(inst):
         match inst:
-            case ["instruction", ["cast", *_], ";"] | ["instruction", ["cast.lossy", *_], ";"]:
+            case ["instruction", ["cast", *_]] | ["instruction", ["cast.lossy", *_]]:
                 return AleoCast.from_json(inst[1])
-            case ["instruction", ["unary", *_], ";"]:
+            case ["instruction", ["unary", *_]]:
                 return AleoUnary.from_json(inst[1])
-            case ["instruction", ["binary", *_], ";"]:
+            case ["instruction", ["binary", *_]]:
                 return AleoBinary.from_json(inst[1])
-            case ["instruction", ["is", *_], ";"]:
+            case ["instruction", ["is", *_]]:
                 return AleoIs.from_json(inst[1])
-            case ["instruction", ["assert", *_], ";"]:
+            case ["instruction", ["assert", *_]]:
                 return AleoAssert.from_json(inst[1])
-            case ["instruction", ["call", *_], ";"]:
+            case ["instruction", ["call", *_]]:
                 return AleoCall.from_json(inst[1])
-            case ["instruction", ["async", *_], ";"]:
+            case ["instruction", ["xasync", *_]]:
                 return AleoAsync.from_json(inst[1])
-            case ["instruction", ["ternary", *_], ";"]:
+            case ["instruction", ["ternary", *_]]:
                 return AleoTernary.from_json(inst[1])
-            case ["instruction", ["hash", *_], ";"]:
+            case ["instruction", ["hash", *_]]:
                 return AleoHash.from_json(inst[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {inst}")
@@ -120,7 +119,7 @@ class AleoCast(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["cast", op, *operands, "into", regacc, "as", dest]:
+            case ["cast", op, *operands, "into", regacc, "as", dest, ";"]:
                 _lossy = None
                 assert op[0] == "cast_op", f"Unsupported cast operator, got: {node}"
                 if op[1] == "cast":
@@ -157,7 +156,7 @@ class AleoUnary(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["unary", op, operand, "into", regacc]:
+            case ["unary", op, operand, "into", regacc, ";"]:
                 _op = AleoUnaryOp.from_json(op)
                 _operand = AleoOperand.from_json(operand)
                 _regacc = AleoRegisterAccess.from_json(regacc)
@@ -179,7 +178,7 @@ class AleoBinary(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["binary", op, *operands, "into", regacc]:
+            case ["binary", op, *operands, "into", regacc, ";"]:
                 assert len(operands) == 2, f"Unsupported number of operands, expected: 2, got: {len(operands)}"
                 _op = AleoBinaryOp.from_json(op)
                 _operands = []
@@ -205,7 +204,7 @@ class AleoTernary(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["ternary", "ternary", *operands, "into", regacc]:
+            case ["ternary", "ternary", *operands, "into", regacc, ";"]:
                 assert len(operands) == 3, f"Unsupported number or operands, expected: 3, got: {len(operands)}"
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 _regacc = AleoRegisterAccess.from_json(regacc)
@@ -227,7 +226,7 @@ class AleoIs(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["is", op, *operands, "into", regacc]:
+            case ["is", op, *operands, "into", regacc, ";"]:
                 assert len(operands) == 2, f"Unsupported number of operands, expected: 2, got: {len(operands)}"
                 _op = AleoIsOp.from_json(op)
                 _operands = []
@@ -253,7 +252,7 @@ class AleoAssert(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["assert", op, *operands]:
+            case ["assert", op, *operands, ";"]:
                 _op = AleoAssertOp.from_json(op)
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 return AleoAssert(_op, _operands)
@@ -275,12 +274,12 @@ class AleoCall(AleoInstruction):
     def from_json(node):
         match node:
             # FIXME: there's another pattern without "into", add it when necessary
-            case ["call", "call", *vs] if "into" in node:
+            case ["call", "call", *vs, ";"] if "into" in node:
                 # extract call components
-                idx_into = node.index("into")
-                callee = node[2]
-                operands = node[3:idx_into]
-                regaccs = node[idx_into+1:]
+                idx_into = vs.index("into")
+                callee = vs[0]
+                operands = vs[1:idx_into]
+                regaccs = vs[idx_into+1:]
                 _callee = None
                 if callee[0] == "locator":
                     _callee = AleoLocator.from_json(callee)
@@ -310,7 +309,7 @@ class AleoAsync(AleoInstruction):
     @staticmethod
     def from_json(node):
         match node:
-            case ["async", "async", callee, *operands, "into", regacc]:
+            case ["xasync", "async", callee, *operands, "into", regacc, ";"]:
                 _callee = AleoIdentifier.from_json(callee)
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 _regacc = AleoRegisterAccess.from_json(regacc)
@@ -350,7 +349,7 @@ class AleoHash1(AleoHash):
     @staticmethod
     def from_json(node):
         match node:
-            case ["hash1", op, operand, "into", regacc, "as", type]:
+            case ["hash1", op, operand, "into", regacc, "as", type, ";"]:
                 _op = AleoHash1Op.from_json(op)
                 _operand = AleoOperand.from_json(operand)
                 _regacc = AleoRegisterAccess.from_json(regacc)

@@ -152,7 +152,7 @@ class AleoProgram(AleoNode):
                 case ["program_id", *_]:
                     tmp0 = AleoProgramId.from_json(p)
                     _id = tmp0
-                case ["import", *_]:
+                case ["ximport", *_]:
                     tmp0 = AleoImport.from_json(p)
                     _imports[tmp0.id] = tmp0
                 case ["struct", *_]:
@@ -209,7 +209,7 @@ class AleoImport(AleoNode):
     def from_json(node):
         for p in node:
             match p:
-                case "import" | ";":
+                case "ximport" | "import" | ";":
                     pass
                 case ["program_id", *_]:
                     _id = AleoProgramId.from_json(p)
@@ -295,11 +295,9 @@ class AleoRecord(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
-            case ["record", "record", id, ":", "owner", "as", otype, ";", *entries]:
+            case ["record", "record", id, ":", *entries]:
                 _id = AleoIdentifier.from_json(id)
                 _fields = {}
-                # type of owner is always address type; here it's inferred, so we directly construct it
-                _fields["owner"] = AleoAddressType(visibility=AleoModifier.from_json("."+otype.split(".")[1]))
                 for p in entries:
                     assert p[0] == "entry" and p[3][0] == "entry_type", f"Unsupported entry, got: {p}"
                     name = AleoIdentifier.from_json(p[1])
@@ -331,12 +329,13 @@ class AleoFunction(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
-            case ["function", "function", id, ":", *vs, finalize]:
-                # vs: input/output/instruction
+            case ["function", "function", id, ":", *vs]:
+                # vs: input/output/instruction/finalize
                 _id = AleoIdentifier.from_json(id)
                 _instructions = []
                 _inputs = []
                 _outputs = []
+                _finalize = None
                 for p in vs:
                     match p:
                         case ["instruction", *_]:
@@ -349,9 +348,10 @@ class AleoFunction(AleoNode):
                             key = AleoRegister.from_json(reg)
                             val = AleoValueType.from_json(vtype)
                             _inputs.append((key, val))
+                        case ["finalize", *_]:
+                            _finalize = AleoFinalize.from_json(p)
                         case _:
                             raise NotImplementedError(f"Unsupported function component, got: {p}")
-                _finalize = None if finalize is None else AleoFinalize.from_json(finalize)
                 return AleoFunction(_id, _instructions, _inputs, _outputs, _finalize)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")

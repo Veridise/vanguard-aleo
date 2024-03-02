@@ -89,25 +89,8 @@ class AleoIdentifier(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
-            case [label, *vs] if label in {"lowercase_identifier", "identifier"}:
-                ls = []
-                for p in vs:
-                    match p:
-                        case ["letter", ["lowercase_letter", s]]:
-                            ls.append(s)
-                        case ["letter", ["uppercase_letter", s]]:
-                            ls.append(s)
-                        case ["lowercase_letter", s]:
-                            ls.append(s)
-                        case ["uppercase_letter", s]:
-                            ls.append(s)
-                        case ["digit", s]:
-                            ls.append(s)
-                        case "_":
-                            ls.append("_")
-                        case _:
-                            raise NotImplementedError(f"Unsupported json component, got: {p}")
-                return AleoIdentifier("".join(ls))
+            case ["identifier", id]:
+                return AleoIdentifier(id)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
     
@@ -138,13 +121,8 @@ class AleoRegister(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
-            case ["register", "r", *vs]:
-                # vs: digits
-                ls = []
-                for p in vs:
-                    assert p[0] == "digit", f"Unsupported register, got: {node}"
-                    ls.append(p[1])
-                return AleoRegister(int("".join(ls)))
+            case ["register", id]:
+                return AleoRegister(int(id[1:]))
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
     
@@ -526,36 +504,13 @@ class AleoHash1Op(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case ["hash1_op", "hash.bhp", "256"]:
-                return AleoHash1Op.BHP256
-            case ["hash1_op", "hash.bhp", "512"]:
-                return AleoHash1Op.BHP512
-            case ["hash1_op", "hash.bhp", "768"]:
-                return AleoHash1Op.BHP768
-            case ["hash1_op", "hash.bhp", "1024"]:
-                return AleoHash1Op.BHP1024
-            case ["hash1_op", "hash.ped", "64"]:
-                return AleoHash1Op.PED64
-            case ["hash1_op", "hash.ped", "128"]:
-                return AleoHash1Op.PED128
-            case ["hash1_op", "hash.psd", "2"]:
-                return AleoHash1Op.PSD2
-            case ["hash1_op", "hash.psd", "4"]:
-                return AleoHash1Op.PSD4
-            case ["hash1_op", "hash.psd", "8"]:
-                return AleoHash1Op.PSD8
-            case ["hash1_op", "hash.keccak", "256"]:
-                return AleoHash1Op.KECCAK256
-            case ["hash1_op", "hash.keccak", "384"]:
-                return AleoHash1Op.KECCAK384
-            case ["hash1_op", "hash.keccak", "512"]:
-                return AleoHash1Op.KECCAK512
-            case ["hash1_op", "hash.sha3_", "256"]:
-                return AleoHash1Op.SHA3_256
-            case ["hash1_op", "hash.sha3_", "384"]:
-                return AleoHash1Op.SHA3_384
-            case ["hash1_op", "hash.sha3_", "512"]:
-                return AleoHash1Op.SHA3_512
+            case ["hash1_op", op]:
+                assert op.startswith("hash."), f"Hash op prefixes mismatch, expected: hash., got: {op}"
+                _s = op[5:].upper()
+                for p in AleoHash1Op:
+                    if _s == p.name:
+                        return p
+                raise NotImplementedError(f"Unsupported hash1 op, got: {op}")
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {s}")
     

@@ -1,16 +1,24 @@
 [project]
 name = "vanguard"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="Yanju Chen", email="yanju@veridise.com" },
 ]
 description = "Static analysis for Aleo"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "networkx[default]>=3.2.1",
+    "beautifulsoup4>=4.12.2",
+    "antlr4-python3-runtime==4.13.1",
+    "pandas>=2.1.4",
+    "antlr4-tools",
 ]
 
 [project.urls]
