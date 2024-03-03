@@ -20,17 +20,13 @@ class AleoRegisterType(AleoType):
         match node:
             case ["register_type", ["plaintext_type", *_]]:
                 return AleoPlaintextType.from_json(node[1])
-            case ["register_type", ["identifier", *_], ".record"]:
+            case ["register_type", ["identifier", *_], modifier]:
                 _type = AleoIdentifier.from_json(node[1])
-                _type.visibility = AleoModifier.from_json(".record")
+                _type.visibility = AleoModifier.from_json(modifier)
                 return _type
-            case ["register_type", ["locator", *_], ".future"]:
+            case ["register_type", ["locator", *_], modifier]:
                 _type = AleoLocator.from_json(node[1])
-                _type.visibility = AleoModifier.from_json(".future")
-                return _type
-            case ["register_type", ["locator", *_], ".record"]:
-                _type = AleoLocator.from_json(node[1])
-                _type.visibility = AleoModifier.from_json(".record")
+                _type.visibility = AleoModifier.from_json(modifier)
                 return _type
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
@@ -68,14 +64,12 @@ class AleoArrayType(AleoPlaintextType):
     @staticmethod
     def from_json(node):
         match node:
-            case ["array_type", "[", b, ";", u32, "]"]:
-                from .literals import AleoU32Literal
+            case ["array_type", "[", b, ";", size, "]"]:
+                from .literals import AleoUnsignedLiteral
                 # b: base type
                 btype = AleoPlaintextType.from_json(b)
-                # if base type is a nested array type, unfold it
-                # directly use the integer after parsing, don't wrap
-                size = AleoU32Literal.from_json(u32).value
-                dim = btype.dim + (size,) if isinstance(btype, AleoArrayType) else (size,)
+                _size = AleoUnsignedLiteral.from_json(size).value
+                dim = btype.dim + (_size,) if isinstance(btype, AleoArrayType) else (_size,)
                 return AleoArrayType(btype, dim)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")

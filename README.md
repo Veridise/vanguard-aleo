@@ -95,10 +95,11 @@ In case the parser is not compatible with your environment, you can generate it 
 
 ```bash
 cd ./vanguard/aleo/parser/
-antlr4 -v 4.13.1 -Dlanguage=Python3 ./Aleo.g4
+antlr4 -v 4.13.1 -Dlanguage=Python3 ./AleoLexer.g4 # generate lexer
+antlr4 -v 4.13.1 -Dlanguage=Python3 ./AleoParser.g4 # generate parser
 ```
 
-The parser/lexer file is located in `./vanguard/aleo/parser/Aleo.g4`.
+The parser/lexer file is located in `./vanguard/aleo/parser/AleoLexer.g4` and `./vanguard/aleo/parser/AleoParser.g4`.
 
 ## Test Suite and Static Analysis APIs
 

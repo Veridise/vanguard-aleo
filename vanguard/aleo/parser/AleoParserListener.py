@@ -1,4 +1,4 @@
-# Generated from ./Aleo.g4 by ANTLR 4.13.1
+# Generated from ./AleoParser.g4 by ANTLR 4.13.1
 from antlr4 import *
 if "." in __name__:
     from .AleoParser import AleoParser
@@ -6,7 +6,7 @@ else:
     from AleoParser import AleoParser
 
 # This class defines a complete listener for a parse tree produced by AleoParser.
-class AleoListener(ParseTreeListener):
+class AleoParserListener(ParseTreeListener):
 
     # Enter a parse tree produced by AleoParser#start.
     def enterStart(self, ctx:AleoParser.StartContext):
@@ -332,12 +332,12 @@ class AleoListener(ParseTreeListener):
         pass
 
 
-    # Enter a parse tree produced by AleoParser#signverify.
-    def enterSignverify(self, ctx:AleoParser.SignverifyContext):
+    # Enter a parse tree produced by AleoParser#sign_verify.
+    def enterSign_verify(self, ctx:AleoParser.Sign_verifyContext):
         pass
 
-    # Exit a parse tree produced by AleoParser#signverify.
-    def exitSignverify(self, ctx:AleoParser.SignverifyContext):
+    # Exit a parse tree produced by AleoParser#sign_verify.
+    def exitSign_verify(self, ctx:AleoParser.Sign_verifyContext):
         pass
 
 
@@ -437,15 +437,6 @@ class AleoListener(ParseTreeListener):
 
     # Exit a parse tree produced by AleoParser#arithmetic_literal.
     def exitArithmetic_literal(self, ctx:AleoParser.Arithmetic_literalContext):
-        pass
-
-
-    # Enter a parse tree produced by AleoParser#u32_literal.
-    def enterU32_literal(self, ctx:AleoParser.U32_literalContext):
-        pass
-
-    # Exit a parse tree produced by AleoParser#u32_literal.
-    def exitU32_literal(self, ctx:AleoParser.U32_literalContext):
         pass
 
 
@@ -638,6 +629,15 @@ class AleoListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by AleoParser#modifier.
+    def enterModifier(self, ctx:AleoParser.ModifierContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#modifier.
+    def exitModifier(self, ctx:AleoParser.ModifierContext):
+        pass
+
+
     # Enter a parse tree produced by AleoParser#program_id.
     def enterProgram_id(self, ctx:AleoParser.Program_idContext):
         pass
@@ -719,6 +719,15 @@ class AleoListener(ParseTreeListener):
         pass
 
 
+    # Enter a parse tree produced by AleoParser#operand_preset.
+    def enterOperand_preset(self, ctx:AleoParser.Operand_presetContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#operand_preset.
+    def exitOperand_preset(self, ctx:AleoParser.Operand_presetContext):
+        pass
+
+
     # Enter a parse tree produced by AleoParser#tuple.
     def enterTuple(self, ctx:AleoParser.TupleContext):
         pass
@@ -752,6 +761,15 @@ class AleoListener(ParseTreeListener):
 
     # Exit a parse tree produced by AleoParser#cast_destination.
     def exitCast_destination(self, ctx:AleoParser.Cast_destinationContext):
+        pass
+
+
+    # Enter a parse tree produced by AleoParser#destination_group.
+    def enterDestination_group(self, ctx:AleoParser.Destination_groupContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#destination_group.
+    def exitDestination_group(self, ctx:AleoParser.Destination_groupContext):
         pass
 
 
@@ -833,6 +851,33 @@ class AleoListener(ParseTreeListener):
 
     # Exit a parse tree produced by AleoParser#branch_op.
     def exitBranch_op(self, ctx:AleoParser.Branch_opContext):
+        pass
+
+
+    # Enter a parse tree produced by AleoParser#random_op.
+    def enterRandom_op(self, ctx:AleoParser.Random_opContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#random_op.
+    def exitRandom_op(self, ctx:AleoParser.Random_opContext):
+        pass
+
+
+    # Enter a parse tree produced by AleoParser#get_or_use_op.
+    def enterGet_or_use_op(self, ctx:AleoParser.Get_or_use_opContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#get_or_use_op.
+    def exitGet_or_use_op(self, ctx:AleoParser.Get_or_use_opContext):
+        pass
+
+
+    # Enter a parse tree produced by AleoParser#sign_verify_op.
+    def enterSign_verify_op(self, ctx:AleoParser.Sign_verify_opContext):
+        pass
+
+    # Exit a parse tree produced by AleoParser#sign_verify_op.
+    def exitSign_verify_op(self, ctx:AleoParser.Sign_verify_opContext):
         pass
 
 
