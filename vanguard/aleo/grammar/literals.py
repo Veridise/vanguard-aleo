@@ -159,23 +159,3 @@ class AleoUnsignedLiteral(AleoIntegerLiteral):
 
     def __str__(self):
         return f"{self.value}{self.type}"
-
-class AleoU32Literal:
-    """Special literal only for representing array, but this will instantiated to unsigned literal"""
-
-    @staticmethod
-    def from_json(node):
-        match node:
-            case ["u32_literal", *digits, "u32"]:
-                from .types import AleoU32Type
-                v = int("".join(digits))
-                return AleoUnsignedLiteral(v, AleoU32Type())
-            case _:
-                raise NotImplementedError(f"Unsupported json component, got: {node}")
-    
-    def __init__(self, **kwargs):
-        assert type(self) is not AleoU32Literal, "This terminal can't be directly initialized"
-        super().__init__(**kwargs)
-
-    def __str__(self):
-        raise TypeError()

@@ -52,7 +52,7 @@ class AleoRandom(AleoCommand):
     @staticmethod
     def from_json(node):
         match node:
-            case ["random", "rand.chacha", *operands, "into", regacc, "as", type, ";"]:
+            case ["random", ["random_op", "rand", ".", "chacha"], *operands, "into", regacc, "as", type, ";"]:
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 _regacc = AleoRegisterAccess.from_json(regacc)
                 _type = None
@@ -86,7 +86,7 @@ class AleoInstruction(AleoCommand):
     @staticmethod
     def from_json(inst):
         match inst:
-            case ["instruction", ["cast", *_]] | ["instruction", ["cast.lossy", *_]]:
+            case ["instruction", ["cast", *_]]:
                 return AleoCast.from_json(inst[1])
             case ["instruction", ["unary", *_]]:
                 return AleoUnary.from_json(inst[1])
@@ -121,13 +121,13 @@ class AleoCast(AleoInstruction):
         match node:
             case ["cast", op, *operands, "into", regacc, "as", dest, ";"]:
                 _lossy = None
-                assert op[0] == "cast_op", f"Unsupported cast operator, got: {node}"
-                if op[1] == "cast":
-                    _lossy = False
-                elif op[1] == "cast.lossy":
-                    _lossy = True
-                else:
-                    raise NotImplementedError(f"Unsupported cast operator, got: {node}")
+                match op:
+                    case ["cast_op", "cast"]:
+                        _lossy = False
+                    case ["cast_op", "cast", ".", "lossy"]:
+                        _lossy = True
+                    case _:
+                        raise NotImplementedError(f"Unsupported cast operator, got: {op}")
                 _operands = []
                 for p in operands:
                     _operands.append(AleoOperand.from_json(p))
@@ -171,7 +171,6 @@ class AleoUnary(AleoInstruction):
 
     def __str__(self):
         return f"{self.op} {self.operand} into {self.regacc};"
-
 
 class AleoBinary(AleoInstruction):
 

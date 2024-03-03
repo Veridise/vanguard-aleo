@@ -50,22 +50,21 @@ class AleoModifier(AleoNode, Enum):
     FUTURE = 4
 
     @staticmethod
-    def from_json(s):
-        match s:
-            case None:
-                return AleoModifier.DEFAULT
-            case ".private":
+    def from_json(node):
+        match node:
+            # NOTE: the default case cannot be directly parsed
+            case ["modifier", ".", "private"]:
                 return AleoModifier.PRIVATE
-            case ".public":
+            case ["modifier", ".", "public"]:
                 return AleoModifier.PUBLIC
-            case ".constant":
+            case ["modifier", ".", "constant"]:
                 return AleoModifier.CONSTANT
-            case ".record":
+            case ["modifier", ".", "record"]:
                 return AleoModifier.RECORD
-            case ".future":
+            case ["modifier", ".", "future"]:
                 return AleoModifier.FUTURE
             case _:
-                raise NotImplementedError(f"Unsupported json component, got: {s}")
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
     
     def __str__(self):
         match self.value:
@@ -197,14 +196,14 @@ class AleoAccessByIndex(AleoRegisterAccessor):
 
     @staticmethod
     def from_json(node):
-        from .literals import AleoU32Literal
+        from .literals import AleoUnsignedLiteral
         match node:
-            case ["access_by_index", "[", u32, "]"]:
-                _u32 = AleoU32Literal.from_json(u32)
-                return AleoAccessByIndex(_u32)
-            case ["access_by_index", "[", *digits, "]"]:
-                _u32 = AleoU32Literal.from_json(["u32_literal", None] + digits + ["u32"])
-                return AleoAccessByIndex(_u32)
+            case ["access_by_index", "[", idx, "]"]:
+                _idx = AleoUnsignedLiteral.from_json(idx)
+                return AleoAccessByIndex(_idx)
+            # case ["access_by_index", "[", *digits, "]"]:
+            #     _idx = AleoUnsignedLiteral.from_json(["unsigned_literal"] + digits + [["unsigned_type", "u32"]])
+            #     return AleoAccessByIndex(_idx)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
     
@@ -285,8 +284,6 @@ class AleoCastDestination(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
-            case ["cast_destination", dest] if isinstance(dest, str) and dest in {"group.x", "group.y"}:
-                return AleoDestinationGroup.from_json(dest)
             case ["cast_destination", ["register_type", *_]]:
                 from .types import AleoRegisterType
                 return AleoRegisterType.from_json(node[1])
@@ -310,10 +307,6 @@ class AleoDestinationGroup(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case "group.x":
-                return AleoDestinationGroup.X
-            case "group.y":
-                return AleoDestinationGroup.Y
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {s}")
     
@@ -340,12 +333,12 @@ class AleoUnaryOp(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case ["unary_op", op]:
-                _s = op.replace(".", "").upper()
+            case ["unary_op", *vs]:
+                _s = "".join(vs).replace(".", "").upper()
                 for p in AleoUnaryOp:
                     if _s == p.name:
                         return p
-                raise NotImplementedError(f"Unsupported unary op, got: {op}")
+                raise NotImplementedError(f"Unsupported unary op, got: {vs}")
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {s}")
     
@@ -390,12 +383,12 @@ class AleoBinaryOp(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case ["binary_op", op]:
-                _s = op.replace(".", "").upper()
+            case ["binary_op", *vs]:
+                _s = "".join(vs).replace(".", "").upper()
                 for p in AleoBinaryOp:
                     if _s == p.name:
                         return p
-                raise NotImplementedError(f"Unsupported binary op, got: {op}")
+                raise NotImplementedError(f"Unsupported binary op, got: {vs}")
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {s}")
     
@@ -415,14 +408,14 @@ class AleoIsOp(AleoNode, Enum):
     EQ = 1
 
     @staticmethod
-    def from_json(s):
-        match s:
-            case ["is_op", "is.eq"]:
+    def from_json(node):
+        match node:
+            case ["is_op", "is", ".", "eq"]:
                 return AleoIsOp.EQ
-            case ["is_op", "is.neq"]:
+            case ["is_op", "is", ".", "neq"]:
                 return AleoIsOp.NEQ
             case _:
-                raise NotImplementedError(f"Unsupported json component, got: {s}")
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
     
     def __str__(self):
         match self.value:
@@ -441,9 +434,9 @@ class AleoAssertOp(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case ["assert_op", "assert.eq"]:
+            case ["assert_op", "assert", ".", "eq"]:
                 return AleoAssertOp.EQ
-            case ["assert_op", "assert.neq"]:
+            case ["assert_op", "assert", ".", "neq"]:
                 return AleoAssertOp.NEQ
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {s}")
@@ -504,9 +497,8 @@ class AleoHash1Op(AleoNode, Enum):
     @staticmethod
     def from_json(s):
         match s:
-            case ["hash1_op", op]:
-                assert op.startswith("hash."), f"Hash op prefixes mismatch, expected: hash., got: {op}"
-                _s = op[5:].upper()
+            case ["hash1_op", "hash", ".", op]:
+                _s = op.upper()
                 for p in AleoHash1Op:
                     if _s == p.name:
                         return p
