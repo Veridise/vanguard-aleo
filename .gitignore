@@ -167,5 +167,7 @@ cython_debug/
 # ======== customized override ======== #
 # ===================================== #
 .DS_Store
+# antlr temp files
+.antlr/
 # exclude aleo build for benchmarks
 !tests/public/**/build/
