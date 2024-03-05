@@ -13,6 +13,7 @@ The following libraries are required for running (different components of) the t
     - `pip install antlr4-tools`
   - [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) (4.12.2+) for crawling benchmarks from public explorers in test suite
   - [pandas](https://pandas.pydata.org/)  (2.1.4+) for data analysis in test suite
+  - [tabulate](https://github.com/astanin/python-tabulate) (0.9.0+) for result table rendering
 - <u>Leo (**7ac50d8**) for compiling and running all benchmarks enclosed</u>
   - The tools is tested under this version, but newer version of Lao may also work.
 

@@ -269,6 +269,8 @@ class AleoOperand(AleoNode):
                 return AleoLiteral.from_json(node[1])
             case ["operand", ["register_access", *_]]:
                 return AleoRegisterAccess.from_json(node[1])
+            case ["operand", ["program_id", *_]]:
+                return AleoProgramId.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             

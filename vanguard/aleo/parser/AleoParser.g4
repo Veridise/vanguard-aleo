@@ -19,7 +19,7 @@ closure_output : OUTPUT operand AS register_type SC ;
 function : FUNCTION identifier CL function_input* instruction* function_output* finalize? ;
 function_input : INPUT register AS value_type SC ;
 function_output : OUTPUT operand AS value_type SC ;
-finalize : FINALIZE identifier CL finalize_input* command+ ;
+finalize : FINALIZE identifier CL finalize_input* command* ;
 finalize_input : INPUT register AS finalize_type SC ;
 
 // instructions

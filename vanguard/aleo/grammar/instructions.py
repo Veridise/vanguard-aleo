@@ -14,6 +14,12 @@ class AleoCommand(AleoNode):
                 return AleoSet.from_json(node[1])
             case ["command", ["random", *_]]:
                 return AleoRandom.from_json(node[1])
+            case ["command", ["contains", *_]]:
+                return AleoContains.from_json(node[1])
+            case ["command", ["get", *_]]:
+                return AleoGet.from_json(node[1])
+            case ["command", ["get_or_use", *_]]:
+                return AleoGetOrUse.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -52,7 +58,7 @@ class AleoRandom(AleoCommand):
     @staticmethod
     def from_json(node):
         match node:
-            case ["random", ["random_op", "rand", ".", "chacha"], *operands, "into", regacc, "as", type, ";"]:
+            case ["random", ["random_op", *_], *operands, "into", regacc, "as", type, ";"]:
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 _regacc = AleoRegisterAccess.from_json(regacc)
                 _type = None
@@ -80,6 +86,73 @@ class AleoRandom(AleoCommand):
     def __str__(self):
         _operands = " ".join([str(p) for p in self.operands])
         return f"random.chacha {_operands} into {self.regacc} as {self.type};"
+    
+class AleoContains(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["contains", "contains", id, "[", operand, "]", "into", regacc, ";"]:
+                  _id = AleoIdentifier.from_json(id)
+                  _operand = AleoOperand.from_json(operand)
+                  _regacc = AleoRegisterAccess.from_json(regacc)
+                  return AleoContains(_id, _operand, _regacc)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+
+    def __init__(self, id, operand, regacc, **kwargs):
+        super().__init__(**kwargs)
+        self.id = id
+        self.operand = operand
+        self.regacc = regacc
+
+    def __str__(self):
+        return f"contains {self.id}[{self.operand}] into {self.regacc};"
+    
+class AleoGet(AleoCommand):
+    
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["get", "get", id, "[", operand, "]", "into", regacc, ";"]:
+                _id = AleoIdentifier.from_json(id)
+                _operand = AleoOperand.from_json(operand)
+                _regacc = AleoRegisterAccess.from_json(regacc)
+                return AleoGet(_id, _operand, _regacc)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, id, operand, regacc, **kwargs):
+        super().__init__(**kwargs)
+        self.id = id
+        self.operand = operand
+        self.regacc = regacc
+
+    def __str__(self):
+        return f"get {self.id} [{self.operand}] into {self.regacc};"
+    
+class AleoGetOrUse(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["get_or_use", ["get_or_use_op", *_], id, "[", operand, "]", default, "into", regacc, ";"]:
+                _id = AleoIdentifier.from_json(id)
+                _operand = AleoOperand.from_json(operand)
+                _default = AleoOperand.from_json(default)
+                _regacc = AleoRegisterAccess.from_json(regacc)
+                return AleoGetOrUse(_id, _operand, _default, _regacc)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, id, operand, default, regacc):
+        self.id = id
+        self.operand = operand
+        self.default = default
+        self.regacc = regacc
+
+    def __str__(self):
+        return f"get.or_use {self.id}[{self.operand}] {self.default} into {self.regacc};"
 
 class AleoInstruction(AleoCommand):
 
