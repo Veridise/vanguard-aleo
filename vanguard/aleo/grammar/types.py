@@ -151,6 +151,10 @@ class AleoArithmeticType(AleoLiteralType):
                 return AleoIntegerType.from_json(node[1])
             case ["arithmetic_type", ["field_type", *_]]:
                 return AleoFieldType.from_json(node[1])
+            case ["arithmetic_type", ["group_type", *_]]:
+                return AleoGroupType.from_json(node[1])
+            case ["arithmetic_type", ["scalar_type", *_]]:
+                return AleoScalarType.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
         
@@ -195,6 +199,38 @@ class AleoFieldType(AleoArithmeticType):
 
     def __str__(self):
         return "field"
+    
+class AleoGroupType(AleoArithmeticType):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["group_type", "group"]:
+                return AleoGroupType()
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "group"
+
+class AleoScalarType(AleoArithmeticType):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["scalar_type", "scalar"]:
+                return AleoScalarType()
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__(self):
+        return "scalar"
     
 class AleoSignedType(AleoIntegerType):
 

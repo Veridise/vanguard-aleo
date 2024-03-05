@@ -43,7 +43,7 @@ def detect(build_path: Union[str, Path], pid: str=None, fids: List=None, detecto
     from .grammar import AleoEnvironment
     from . import detectors as dlib
 
-    env = AleoEnvironment(build_path)
+    env = AleoEnvironment.from_project(build_path)
     _detector = getattr(dlib, "detector_infoleak") if detector is None else getattr(dlib, f"detector_{detector}")
     
     prog = env.main if pid is None else env.programs[pid]

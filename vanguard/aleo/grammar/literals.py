@@ -52,6 +52,10 @@ class AleoArithmeticLiteral(AleoLiteral):
                 return AleoIntegerLiteral.from_json(node[1])
             case ["arithmetic_literal", ["field_literal", *_]]:
                 return AleoFieldLiteral.from_json(node[1])
+            case ["arithmetic_literal", ["group_literal", *_]]:
+                return AleoGroupLiteral.from_json(node[1])
+            case ["arithmetic_literal", ["scalar_literal", *_]]:
+                return AleoScalarLiteral.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -113,6 +117,44 @@ class AleoFieldLiteral(AleoArithmeticLiteral):
                 v = int("".join(digits))
                 _type =AleoFieldType.from_json(type)
                 return AleoFieldLiteral(v, _type)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)     
+
+    def __str__(self):
+        return f"{self.value}{self.type}"
+    
+class AleoGroupLiteral(AleoArithmeticLiteral):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["group_literal", *digits, type]:
+                from .types import AleoGroupType
+                v = int("".join(digits))
+                _type =AleoGroupType.from_json(type)
+                return AleoGroupLiteral(v, _type)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)     
+
+    def __str__(self):
+        return f"{self.value}{self.type}"
+    
+class AleoScalarLiteral(AleoArithmeticLiteral):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["scalar_literal", *digits, type]:
+                from .types import AleoScalarType
+                v = int("".join(digits))
+                _type =AleoScalarType.from_json(type)
+                return AleoScalarLiteral(v, _type)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             

@@ -113,7 +113,7 @@ from .vanguard.aleo.detectors import detector_divz
 project_name = "divz0"
 function_name = "ex1"
 build_path = f"./tests/public/{project_name}/build/"
-env = AleoEnvironment(build_path) # load project
+env = AleoEnvironment.from_project(build_path) # load project
 detector_divz(env, env.main.id, function_name, readable=True) # detect
 ```
 
@@ -140,7 +140,7 @@ from vanguard.aleo.detectors import detector_divz
 project_name = "divz0"
 function_name = "ex1"
 build_path = f"./tests/public/{project_name}/build/"
-env = AleoEnvironment(build_path) # load project
+env = AleoEnvironment.from_project(build_path) # load project
 detector_divz(env, env.main.id, function_name, readable=True) # detect
 ```
 

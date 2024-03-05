@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from .grammar import AleoEnvironment
 
 def run_test_suite(build_path, detector, verbose=False):
-    env = AleoEnvironment(build_path)
+    env = AleoEnvironment.from_project(build_path)
 
     # locate the vanguard_helper function and retrieve the label info
     expected_labels = env.main.functions["vanguard_helper"].instructions[0].operands

@@ -9,32 +9,50 @@ from .types import *
 from .misc import *
 
 class AleoEnvironment(AleoNode):
-    def __init__(self, build_path, main_file: str="main.aleo"):
-        self.programs: dict[str, AleoProgram] = {}
-        self.main = None
-        self.load(build_path, main_file=main_file)
 
-    # load the entire project
-    def load(self, build_path: Union[str, Path], main_file: str="main.aleo"):
+    @staticmethod
+    def from_project(build_path: Union[str, Path], main_file: str="main.aleo"):
+        """Create an environment from a project build path"""
         path = build_path if isinstance(build_path, Path) else Path(build_path)
+        _programs = {}
+
         # look for main.aleo and deploy
         print(f"# [debug] deploy: {main_file}")
         main_path = path / main_file
         main_json = aleo2json(main_path)
-        self.main = self.deploy(main_json)
+        assert main_json[0] == "start", f"Unsupported source of start, got: {main_json}"
+        _main = AleoProgram.from_json(main_json[1])
+        _programs[_main.id] = _main
+
         # look for imports and deploy
         imports_path = path / "imports"
         for fp_path in list(imports_path.glob("*.aleo")):
             print(f"# [debug] deploy: {fp_path.name}")
             fp_json = aleo2json(fp_path)
-            self.deploy(fp_json)
+            assert fp_json[0] == "start", f"Unsupported source of start, got: {fp_json}"
+            fp_prog = AleoProgram.from_json(fp_json[1])
+            _programs[fp_prog.id] = fp_prog
+        
+        # create environment and return
+        return AleoEnvironment(_programs, _main)
 
-    # deploy a single Aleo program
-    def deploy(self, node: list) -> str:
-        assert node[0] == "start", f"Unsupported source of start, got: {node}"
-        p = AleoProgram.from_json(node[1])
-        self.programs[p.id] = p
-        return p
+    @staticmethod
+    def from_program(main_path: Union[str, Path]):
+        """Create an environment from a single program, ignoring all dependencies (usually for debugging)"""
+        _programs = {}
+
+        # load and deploy
+        main_json = aleo2json(main_path)
+        assert main_json[0] == "start", f"Unsupported source of start, got: {main_json}"
+        _main = AleoProgram.from_json(main_json[1])
+        _programs[_main.id] = _main
+
+        # create environment and return
+        return AleoEnvironment(_programs, _main)
+
+    def __init__(self, programs, main):
+        self.programs = programs
+        self.main = main
     
     def resolve_function(self, pid, callee):
         _pid = None
