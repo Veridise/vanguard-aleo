@@ -2,6 +2,19 @@
 
 This repo hosts an open-source Python branch of the static analysis tool Vanguard developed by Veridise. This version is optimized for analyzing Leo/Aleo programs.
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Usage](#usage)
+  - [Commandline Executable](#commandline-executable)
+    - [Example Commands](#example-commands)
+  - [Calling from Source](#calling-from-source)
+  - [Calling as Library](#calling-as-library)
+- [Detectors Available](#detectors-available)
+- [Example Leo/Aleo Vulnerabilities](#example-leoaleo-vulnerabilities)
+- [Parser/Lexer Generation](#parserlexer-generation)
+- [Test Suite and Static Analysis APIs](#test-suite-and-static-analysis-apis)
+
 ## Prerequisites
 
 The following libraries are required for running (different components of) the tool:
@@ -13,12 +26,81 @@ The following libraries are required for running (different components of) the t
     - `pip install antlr4-tools`
   - [Beautiful Soup](https://www.crummy.com/software/BeautifulSoup/) (4.12.2+) for crawling benchmarks from public explorers in test suite
   - [pandas](https://pandas.pydata.org/)  (2.1.4+) for data analysis in test suite
+  - [tabulate](https://github.com/astanin/python-tabulate) (0.9.0+) for result table rendering
 - <u>Leo (**7ac50d8**) for compiling and running all benchmarks enclosed</u>
   - The tools is tested under this version, but newer version of Lao may also work.
 
-## Vanguard for Aleo
+## Usage
 
-The library of Vanguard for Aleo provides common vulnerability detectors and basic utilities for writing detectors based on static analysis. To use the tool, you can call it directly from the repo or install it as a library.
+The library of Vanguard for Aleo provides common vulnerability detectors and basic utilities for writing detectors based on static analysis. There are three ways to use and integrate the tool into your workflow, namely: commandline executable, calling from source and calling as library.
+
+### Commandline Executable
+
+The analyzer can be installed via `pip` setup tools by running:
+
+```bash
+pip install .
+```
+
+and if you want to remove it:
+
+```bash
+pip uninstall vanguard
+```
+
+After installation, you can directly use the commandline executable `vanguard-aleo` provided:
+
+```bash
+usage: vanguard-aleo [-h] [-b BUILD] [-p PID] [-f FIDS] [-d {divz,infoleak,rtcnst,unused}] [-v]
+
+options:
+  -h, --help            show this help message and exit
+  -b BUILD, --build BUILD
+                        project build path, default: ./
+  -p PID, --pid PID     program id, default: <project main entrance>
+  -f FIDS, --fids FIDS  function ids (separated by comma, no space), default: <all functions of project>
+  -d {divz,infoleak,rtcnst,unused}, --detector {divz,infoleak,rtcnst,unused}
+                        detector to use, default: infoleak
+  -v, --verbose         whether or not to return extra info, default: False
+```
+
+#### Example Commands
+
+- Test detector `infoleak` on all functions of the main program of a project:
+
+  ```bash
+  vanguard-aleo -b ./tests/public/infoleak0/build/ -d infoleak
+  ```
+
+- Test detector `infoleak` on function `ex0` of the main program of a project:
+
+  ```bash
+  vanguard-aleo -b ./tests/public/infoleak0/build/ -f ex0 -d infoleak
+  ```
+
+- Test detector `infoleak` of multiple functions `ex0`, `ex1` and `ex2` of the program `infoleak0.aleo`:
+
+  ```bash
+  vanguard-aleo -b ./tests/public/infoleak0/build/ -f ex0,ex1,ex2 -p infoleak0.aleo -d infoleak
+  ```
+
+- Test detector `infoleak` of multiple functions `ex0`, `ex1` and `ex2` of the program `infoleak0.aleo`, and print out extra information about the finding:
+
+  ```bash
+  vanguard-aleo -b ./tests/public/infoleak0/build/ -f ex0,ex1,ex2 -p infoleak0.aleo -d infoleak -v
+  ```
+
+  This will produce the following output:
+
+  ```
+  |   id | program        | function   | detector   | result   | info           |
+  |------|----------------|------------|------------|----------|----------------|
+  |    0 | infoleak0.aleo | ex0        | infoleak   | unsafe   | [('r0', 'r0')] |
+  |    1 | infoleak0.aleo | ex1        | infoleak   | safe     | []             |
+  |    2 | infoleak0.aleo | ex2        | infoleak   | unsafe   | [('r0', 'r1')] |
+  ```
+
+  where the info column provides more information about the detected vulnerability. For example, in function `ex0` there's information leakage from variable `r0` to `r0` (direct returning of input), and in `ex2` from `r0` to `r1`. 
 
 ### Calling from Source
 
