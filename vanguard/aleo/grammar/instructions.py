@@ -20,6 +20,10 @@ class AleoCommand(AleoNode):
                 return AleoGet.from_json(node[1])
             case ["command", ["get_or_use", *_]]:
                 return AleoGetOrUse.from_json(node[1])
+            case ["command", ["remove", *_]]:
+                return AleoRemove.from_json(node[1])
+            case ["command", ["xawait", *_]]:
+                return AleoAwait.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -153,6 +157,44 @@ class AleoGetOrUse(AleoCommand):
 
     def __str__(self):
         return f"get.or_use {self.id}[{self.operand}] {self.default} into {self.regacc};"
+    
+class AleoRemove(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["remove", "remove", id, "[", operand, "]", ";"]:
+                _id = AleoIdentifier.from_json(id)
+                _operand = AleoOperand.from_json(operand)
+                return AleoRemove(_id, _operand)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, id, operand, **kwargs):
+        super().__init__(**kwargs)
+        self.id = id
+        self.operand = operand
+
+    def __str__(self):
+        return f"remove {self.id}[{self.operand}];"
+    
+class AleoAwait(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["xawait", "await", regacc, ";"]:
+                _regacc = AleoRegisterAccess.from_json(regacc)
+                return AleoAwait(_regacc)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+    
+    def __init__(self, regacc, **kwargs):
+        super().__init__(**kwargs)
+        self.regacc = regacc
+
+    def __str__(self):
+        return f"await {self.regacc};"
 
 class AleoInstruction(AleoCommand):
 
@@ -177,6 +219,8 @@ class AleoInstruction(AleoCommand):
                 return AleoTernary.from_json(inst[1])
             case ["instruction", ["hash", *_]]:
                 return AleoHash.from_json(inst[1])
+            case ["instruction", ["sign_verify", *_]]:
+                return AleoSignVerify.from_json(inst[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {inst}")
             
@@ -238,6 +282,7 @@ class AleoUnary(AleoInstruction):
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
     def __init__(self, op, operand, regacc, **kwargs):
+        super().__init__(**kwargs)
         self.op = op
         self.operand = operand
         self.regacc = regacc
@@ -452,3 +497,24 @@ class AleoHash1(AleoHash):
 
     def __str__(self):
         return f"{self.op} {self.operand} into {self.regacc} as {self.type}"
+    
+class AleoSignVerify(AleoInstruction):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["sign_verify", ["sign_verify_op", *_], *operands, "into", regacc, ";"]:
+                _operands = [ AleoOperand.from_json(p) for p in operands ]
+                _regacc = AleoRegisterAccess.from_json(regacc)
+                return AleoSignVerify(_operands, _regacc)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+    
+    def __init__(self, operands, regacc, **kwargs):
+        super().__init__(**kwargs)
+        self.operands = operands
+        self.regacc = regacc
+    
+    def __str__(self):
+        _operands = " ".join([f"{p}" for p in self.operands])
+        return f"sign.verify {_operands} into {self.regacc};"

@@ -70,6 +70,12 @@ def get_dfg_edges(env: AleoEnvironment, pid: str, fid: str, hash=True, call=Fals
                 # no data flow
                 pass
 
+            case AleoSignVerify():
+                for p in inst.operands:
+                    if not isinstance(p, AleoLiteral):
+                        # only consider non-literal
+                        edges.append((p, inst.regacc))
+
             case _:
                 raise NotImplementedError(f"Unsupported instruction, got: {inst}, type: {type(inst)}")
 

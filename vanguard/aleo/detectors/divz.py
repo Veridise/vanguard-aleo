@@ -149,6 +149,9 @@ def a(node):
             return node
         case AleoLiteral():
             return AleoAbstractLiteral.abs(node)
+        case [*_]:
+            # collection, directly return since each element should've been visited already
+            return node
         case _:
             raise NotImplementedError(f"Can't wrap a non-literal, got: {node}")
 

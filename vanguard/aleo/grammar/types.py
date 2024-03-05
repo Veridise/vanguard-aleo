@@ -98,6 +98,8 @@ class AleoLiteralType(AleoPlaintextType):
                 return AleoBooleanType.from_json(node[1])
             case ["literal_type", ["address_type", *_]]:
                 return AleoAddressType.from_json(node[1])
+            case ["literal_type", ["signature_type", *_]]:
+                return AleoSignatureType.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -107,7 +109,6 @@ class AleoLiteralType(AleoPlaintextType):
 
     def __str__(self):
         raise TypeError()
-
 
 class AleoBooleanType(AleoLiteralType):
 
@@ -362,6 +363,11 @@ class AleoFinalizeType(AleoType):
                 _type = AleoPlaintextType.from_json(node[1])
                 _visibility = AleoModifier.from_json(visibility)
                 _type.visibility = _visibility
+                return _type
+            case ["finalize_type", ["locator", *_], modifier]:
+                _type = AleoLocator.from_json(node[1])
+                _visibility = AleoModifier.from_json(modifier)
+                _type.visibility = modifier
                 return _type
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
