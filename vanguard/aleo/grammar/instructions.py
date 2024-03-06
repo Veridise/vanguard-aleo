@@ -24,6 +24,10 @@ class AleoCommand(AleoNode):
                 return AleoRemove.from_json(node[1])
             case ["command", ["xawait", *_]]:
                 return AleoAwait.from_json(node[1])
+            case ["command", ["branch", *_]]:
+                return AleoBranch.from_json(node[1])
+            case ["command", ["position", *_]]:
+                return AleoPosition.from_json(node[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
             
@@ -133,7 +137,7 @@ class AleoGet(AleoCommand):
         self.regacc = regacc
 
     def __str__(self):
-        return f"get {self.id} [{self.operand}] into {self.regacc};"
+        return f"get {self.id}[{self.operand}] into {self.regacc};"
     
 class AleoGetOrUse(AleoCommand):
 
@@ -195,6 +199,48 @@ class AleoAwait(AleoCommand):
 
     def __str__(self):
         return f"await {self.regacc};"
+    
+class AleoBranch(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["branch", op, *operands, "to", label, ";"]:
+                assert len(operands) == 2, f"Unsupported number of operands, expected: 2, got: {len(operands)}"
+                _op = AleoBranchOp.from_json(op)
+                _operands = [ AleoOperand.from_json(p) for p in operands ]
+                _label = AleoLabel.from_json(label)
+                return AleoBranch(_op, _operands, _label)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, op, operands, label, **kwargs):
+        super().__init__(**kwargs)
+        self.op = op
+        self.operands = operands
+        self.label = label
+
+    def __str__(self):
+        _operands = " ".join([str(p) for p in self.operands])
+        return f"{self.op} {_operands} to {self.label};"
+    
+class AleoPosition(AleoCommand):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["position", "position", label, ";"]:
+                _label = AleoLabel.from_json(label)
+                return AleoPosition(_label)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+            
+    def __init__(self, label, **kwargs):
+        super().__init__(**kwargs)
+        self.label = label
+
+    def __str__(self):
+        return f"position {self.label};"
 
 class AleoInstruction(AleoCommand):
 
@@ -221,6 +267,8 @@ class AleoInstruction(AleoCommand):
                 return AleoHash.from_json(inst[1])
             case ["instruction", ["sign_verify", *_]]:
                 return AleoSignVerify.from_json(inst[1])
+            case ["instruction", ["commit", *_e]]:
+                return AleoCommit.from_json(inst[1])
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {inst}")
             
@@ -504,6 +552,7 @@ class AleoSignVerify(AleoInstruction):
     def from_json(node):
         match node:
             case ["sign_verify", ["sign_verify_op", *_], *operands, "into", regacc, ";"]:
+                assert len(operands) == 3, f"Unsupported number of operands, expected: 3, got: {len(operands)}"
                 _operands = [ AleoOperand.from_json(p) for p in operands ]
                 _regacc = AleoRegisterAccess.from_json(regacc)
                 return AleoSignVerify(_operands, _regacc)
@@ -518,3 +567,38 @@ class AleoSignVerify(AleoInstruction):
     def __str__(self):
         _operands = " ".join([f"{p}" for p in self.operands])
         return f"sign.verify {_operands} into {self.regacc};"
+
+class AleoCommit(AleoInstruction):
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["commit", op, *operands, "into", regacc, "as", type, ";"]:
+                _op = AleoCommitOp.from_json(op)
+                _operands = [ AleoOperand.from_json(p) for p in operands ]
+                _regacc = AleoRegisterAccess.from_json(regacc)
+                # special parsing for types, as they don't inherit the same super class
+                _type = None
+                match type:
+                    case ["address_type", *_]:
+                        _type = AleoAddressType.from_json(type)
+                    case ["field_type", *_]:
+                        _type = AleoFieldType.from_json(type)
+                    case ["group_type", *_]:
+                        _type = AleoGroupType.from_json(type)
+                    case _:
+                        raise NotImplementedError(f"Unsupported type for commit, got: {type}")
+                return AleoCommit(_op, _operands, _regacc, _type)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+    
+    def __init__(self, op, operands, regacc, type, **kwargs):
+        super().__init__(**kwargs)
+        self.op = op
+        self.operands = operands
+        self.regacc = regacc
+        self.type = type
+
+    def __str__(self):
+        _operands = " ".join([f"{p}" for p in self.operands])
+        return f"{self.op} {_operands} into {self.regacc} as {self.type};"

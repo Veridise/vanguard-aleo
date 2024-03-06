@@ -4,7 +4,7 @@ from vanguard.aleo.detectors import detector_rtcnst
 if __name__ == "__main__":
     project_name = "rtcnst0"
     build_path = f"./tests/public/{project_name}/build/"
-    env = AleoEnvironment(build_path)
+    env = AleoEnvironment.from_project(build_path)
     main = env.main
     fid = "ex0"
     res, info = detector_rtcnst(env, main.id, fid)

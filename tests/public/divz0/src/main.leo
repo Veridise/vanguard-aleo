@@ -87,7 +87,7 @@ program divz0.aleo {
 
     // compilable, runnable
     // label: bad
-    const label_ex7: bool = false;
+    const label_ex7: bool = true;
     transition ex7() -> u8 {
         let a: u8 = 225u8;
         let b: u8 = 0u8;

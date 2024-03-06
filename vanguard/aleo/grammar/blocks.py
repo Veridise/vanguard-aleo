@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, Union, Callable
 from pathlib import Path
 
 from ..common import aleo2json
@@ -9,32 +9,50 @@ from .types import *
 from .misc import *
 
 class AleoEnvironment(AleoNode):
-    def __init__(self, build_path, main_file: str="main.aleo"):
-        self.programs: dict[str, AleoProgram] = {}
-        self.main = None
-        self.load(build_path, main_file=main_file)
 
-    # load the entire project
-    def load(self, build_path: Union[str, Path], main_file: str="main.aleo"):
+    @staticmethod
+    def from_project(build_path: Union[str, Path], main_file: str="main.aleo"):
+        """Create an environment from a project build path"""
         path = build_path if isinstance(build_path, Path) else Path(build_path)
+        _programs = {}
+
         # look for main.aleo and deploy
         print(f"# [debug] deploy: {main_file}")
         main_path = path / main_file
         main_json = aleo2json(main_path)
-        self.main = self.deploy(main_json)
+        assert main_json[0] == "start", f"Unsupported source of start, got: {main_json}"
+        _main = AleoProgram.from_json(main_json[1])
+        _programs[_main.id] = _main
+
         # look for imports and deploy
         imports_path = path / "imports"
         for fp_path in list(imports_path.glob("*.aleo")):
             print(f"# [debug] deploy: {fp_path.name}")
             fp_json = aleo2json(fp_path)
-            self.deploy(fp_json)
+            assert fp_json[0] == "start", f"Unsupported source of start, got: {fp_json}"
+            fp_prog = AleoProgram.from_json(fp_json[1])
+            _programs[fp_prog.id] = fp_prog
+        
+        # create environment and return
+        return AleoEnvironment(_programs, _main)
 
-    # deploy a single Aleo program
-    def deploy(self, node: list) -> str:
-        assert node[0] == "start", f"Unsupported source of start, got: {node}"
-        p = AleoProgram.from_json(node[1])
-        self.programs[p.id] = p
-        return p
+    @staticmethod
+    def from_program(main_path: Union[str, Path]):
+        """Create an environment from a single program, ignoring all dependencies (usually for debugging)"""
+        _programs = {}
+
+        # load and deploy
+        main_json = aleo2json(main_path)
+        assert main_json[0] == "start", f"Unsupported source of start, got: {main_json}"
+        _main = AleoProgram.from_json(main_json[1])
+        _programs[_main.id] = _main
+
+        # create environment and return
+        return AleoEnvironment(_programs, _main)
+
+    def __init__(self, programs, main):
+        self.programs = programs
+        self.main = main
     
     def resolve_function(self, pid, callee):
         _pid = None
@@ -57,22 +75,18 @@ class AleoEnvironment(AleoNode):
     def mget(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], ctx: dict=None):
         match id:
 
-            case AleoRegister() | AleoIdentifier():
-                # flat
-                if ctx is None or id not in ctx.keys():
-                    return self.programs[pid].mem[id]
-                else:
-                    return ctx[id]
+            case AleoRegister():
+                assert ctx is not None, f"Context can't be None when accessing register"
+                return ctx[id]
+                
+            case AleoIdentifier():
+                return self.programs[pid].mem[id]
                 
             case AleoRegisterAccess():
                 # potentially nested
                 # determine the base
-                base = None
-                if ctx is None or id.reg not in ctx.keys():
-                    # NOTE: check first layer, if not matched, proceed at ctx
-                    base = self.programs[pid].mem[id.reg]
-                else:
-                    base = ctx[id.reg]
+                assert ctx is not None, f"Context can't be None when accessing register"
+                base = ctx[id.reg]
                 # walk down the path
                 for p in id.accs:
                     match p:
@@ -88,6 +102,10 @@ class AleoEnvironment(AleoNode):
             case AleoLiteral():
                 return id
             
+            # FIXME: return something
+            case AleoOperandPreset():
+                return AleoUnsignedLiteral.from_json(["unsigned_literal", "6", "5", "4", "3", ["unsigned_type", "u32"]])
+            
             case _:
                 raise NotImplementedError(f"Unsupported type of id, got: {id} of type {type(id)}")
             
@@ -95,29 +113,22 @@ class AleoEnvironment(AleoNode):
     def mset(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], val: AleoLiteral, ctx: dict=None):
         match id:
 
-            case AleoRegister() | AleoIdentifier():
-                # flat
-                if ctx is None or id not in ctx.keys():
-                    self.programs[pid].mem[id] = val
-                else:
-                    ctx[id] = val
+            case AleoRegister():
+                assert ctx is not None, f"Context can't be None when accessing register"
+                ctx[id] = val
+
+            case AleoIdentifier():
+                self.programs[pid].mem[id] = val
             
             case AleoRegisterAccess() if len(id.accs) == 0:
-                # no accessor, same as single register
-                if ctx is None or id not in ctx.keys():
-                    self.programs[pid].mem[id.reg] = val
-                else:
-                    ctx[id.reg] = val
+                assert ctx is not None, f"Context can't be None when accessing register"
+                ctx[id.reg] = val
 
             case AleoRegisterAccess():
                 # potentially nested
                 # determine the last but one base
-                lbobase = None
-                if ctx is None or id.reg not in ctx.keys():
-                    # NOTE: check first layer, if not matched, proceed at ctx
-                    lbobase = self.programs[pid].mem[id.reg]
-                else:
-                    lbobase = ctx[id.reg]
+                assert ctx is not None, f"Context can't be None when accessing register"
+                lbobase = ctx[id.reg]
                 # walk down the path, with the last one left
                 for p in id.accs[:-1]:
                     match p:
@@ -256,9 +267,18 @@ class AleoStruct(AleoNode):
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
     
-    def instantiate(self, params: list):
+    def instantiate(self, params: Union[list, Callable]):
+        # NOTE: params can be a collection of values (used in interpretation)
+        #       or a value constructor (used for input construction)
         _keys = list(self.fields.keys())
-        return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        _vals = list(self.fields.values())
+        if isinstance(params, list):
+            assert len(_keys) == len(params), f"Numbers of parameters mismatch, expected: {len(_keys)}, got: {len(params)}"
+            return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        elif callable(params):
+            return { _keys[i] : params(_vals[i]) for i in range(len(_keys)) }
+        else:
+            raise NotImplementedError(f"Unsupported parameters for struct instantiation, got: {params}")
 
 class AleoMapping(AleoNode):
 
@@ -320,9 +340,18 @@ class AleoRecord(AleoNode):
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
     
-    def instantiate(self, params: list):
+    def instantiate(self, params: Union[list, Callable]):
+        # NOTE: params can be a collection of values (used in interpretation)
+        #       or a value constructor (used for input construction)
         _keys = list(self.fields.keys())
-        return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        _vals = list(self.fields.values())
+        if isinstance(params, list):
+            assert len(_keys) == len(params), f"Numbers of parameters mismatch, expected: {len(_keys)}, got: {len(params)}"
+            return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        elif callable(params):
+            return { _keys[i] : params(_vals[i]) for i in range(len(_keys)) }
+        else:
+            raise NotImplementedError(f"Unsupported parameters for record instantiation, got: {params}")
 
 class AleoFunction(AleoNode):
 

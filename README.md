@@ -93,14 +93,14 @@ options:
   This will produce the following output:
 
   ```
-  |   id | program        | function   | detector   | result   | info           |
-  |------|----------------|------------|------------|----------|----------------|
-  |    0 | infoleak0.aleo | ex0        | infoleak   | unsafe   | [('r0', 'r0')] |
-  |    1 | infoleak0.aleo | ex1        | infoleak   | safe     | []             |
-  |    2 | infoleak0.aleo | ex2        | infoleak   | unsafe   | [('r0', 'r1')] |
+  |   id | program        | function   | detector   | result   | info                 |
+  |------|----------------|------------|------------|----------|----------------------|
+  |    0 | infoleak0.aleo | ex0        | infoleak   | unsafe   | ['output r0 as u8;'] |
+  |    1 | infoleak0.aleo | ex1        | infoleak   | safe     | []                   |
+  |    2 | infoleak0.aleo | ex2        | infoleak   | unsafe   | ['output r1 as i8;'] |
   ```
 
-  where the info column provides more information about the detected vulnerability. For example, in function `ex0` there's information leakage from variable `r0` to `r0` (direct returning of input), and in `ex2` from `r0` to `r1`. 
+  where the info column provides more information about the detected vulnerability. For example, in function `ex0` there's information leakage of `r0` via output command. 
 
 ### Calling from Source
 
@@ -113,7 +113,7 @@ from .vanguard.aleo.detectors import detector_divz
 project_name = "divz0"
 function_name = "ex1"
 build_path = f"./tests/public/{project_name}/build/"
-env = AleoEnvironment(build_path) # load project
+env = AleoEnvironment.from_project(build_path) # load project
 detector_divz(env, env.main.id, function_name, readable=True) # detect
 ```
 
@@ -140,7 +140,7 @@ from vanguard.aleo.detectors import detector_divz
 project_name = "divz0"
 function_name = "ex1"
 build_path = f"./tests/public/{project_name}/build/"
-env = AleoEnvironment(build_path) # load project
+env = AleoEnvironment.from_project(build_path) # load project
 detector_divz(env, env.main.id, function_name, readable=True) # detect
 ```
 

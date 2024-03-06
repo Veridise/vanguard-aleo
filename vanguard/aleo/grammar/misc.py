@@ -114,6 +114,18 @@ class AleoIdentifier(AleoNode):
             return f"{self.id}" == other
         else:
             return False
+
+class AleoLabel(AleoIdentifier):
+    # NOTE: AleoLabel is similar to AleoIdentifier and so inherits it, for now
+
+    @staticmethod
+    def from_json(node):
+        match node:
+            case ["label", id]:
+                return AleoLabel(id)
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {node}")
+
     
 class AleoRegister(AleoNode):
 
@@ -198,12 +210,13 @@ class AleoAccessByIndex(AleoRegisterAccessor):
     def from_json(node):
         from .literals import AleoUnsignedLiteral
         match node:
-            case ["access_by_index", "[", idx, "]"]:
+            # there could be only 1 digit, which should be matched to the second case not the first
+            case ["access_by_index", "[", idx, "]"] if isinstance(idx, list):
                 _idx = AleoUnsignedLiteral.from_json(idx)
                 return AleoAccessByIndex(_idx)
-            # case ["access_by_index", "[", *digits, "]"]:
-            #     _idx = AleoUnsignedLiteral.from_json(["unsigned_literal"] + digits + [["unsigned_type", "u32"]])
-            #     return AleoAccessByIndex(_idx)
+            case ["access_by_index", "[", *digits, "]"]:
+                _idx = AleoUnsignedLiteral.from_json(["unsigned_literal"] + digits + [["unsigned_type", "u32"]])
+                return AleoAccessByIndex(_idx)
             case _:
                 raise NotImplementedError(f"Unsupported json component, got: {node}")
     
@@ -264,6 +277,8 @@ class AleoOperand(AleoNode):
     @staticmethod
     def from_json(node):
         match node:
+            case ["operand", ["operand_preset", *_]]:
+                return AleoOperandPreset.from_json(node[1])
             case ["operand", ["literal", *_]]:
                 from .literals import AleoLiteral
                 return AleoLiteral.from_json(node[1])
@@ -510,3 +525,86 @@ class AleoHash1Op(AleoNode, Enum):
     
     def __str__(self):
         return f"hash.{self.name.lower()}"
+    
+class AleoCommitOp(AleoNode, Enum):
+
+    BHP256 = 0
+    BHP512 = 1
+    BHP768 = 2
+    BHP1024 = 3
+
+    PED64 = 4
+    PED128 = 5
+
+    @staticmethod
+    def from_json(s):
+        match s:
+            case ["commit_op", "commit", ".", op]:
+                _s = op.upper()
+                for p in AleoCommitOp:
+                    if _s == p.name:
+                        return p
+                raise NotImplementedError(f"Unsupported commit op, got: {op}")
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {s}")
+    
+    def __str__(self):
+        return f"commit.{self.name.lower()}"
+    
+class AleoBranchOp(AleoNode, Enum):
+
+    NEQ = 0
+    EQ = 1
+
+    @staticmethod
+    def from_json(s):
+        match s:
+            case ["branch_op", "branch", ".", "eq"]:
+                return AleoBranchOp.EQ
+            case ["branch_op", "branch", ".", "neq"]:
+                return AleoBranchOp.NEQ
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {s}")
+    
+    def __str__(self):
+        match self.value:
+            case AleoBranchOp.NEQ.value:
+                return "branch.neq"
+            case AleoBranchOp.EQ.value:
+                return "branch.eq"
+            case _:
+                raise NotImplementedError(f"Unsupported branch op, got: {self.value}")
+            
+class AleoOperandPreset(AleoNode, Enum):
+
+    CALLER = 0
+    SIGNER = 1
+    GROUPGEN = 2
+    BLOCKHEIGHT = 3
+
+    @staticmethod
+    def from_json(s):
+        match s:
+            case ["operand_preset", "self", ".", "caller"]:
+                return AleoOperandPreset.CALLER
+            case ["operand_preset", "self", ".", "signer"]:
+                return AleoOperandPreset.SIGNER
+            case ["operand_preset", "group", "::", "GEN"]:
+                return AleoOperandPreset.GROUPGEN
+            case ["operand_preset", "block", ".", "height"]:
+                return AleoOperandPreset.BLOCKHEIGHT
+            case _:
+                raise NotImplementedError(f"Unsupported json component, got: {s}")
+    
+    def __str__(self):
+        match self.value:
+            case AleoOperandPreset.CALLER.value:
+                return "self.caller"
+            case AleoOperandPreset.SIGNER.value:
+                return "self.signer"
+            case AleoOperandPreset.GROUPGEN.value:
+                return "group::GEN"
+            case AleoOperandPreset.BLOCKHEIGHT.value:
+                return "block.height"
+            case _:
+                raise NotImplementedError(f"Unsupported operand preset, got: {self.value}")
