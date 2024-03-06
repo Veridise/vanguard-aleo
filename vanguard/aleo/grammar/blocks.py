@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any, Union, Callable
 from pathlib import Path
 
 from ..common import aleo2json
@@ -75,22 +75,18 @@ class AleoEnvironment(AleoNode):
     def mget(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], ctx: dict=None):
         match id:
 
-            case AleoRegister() | AleoIdentifier():
-                # flat
-                if ctx is None or id not in ctx.keys():
-                    return self.programs[pid].mem[id]
-                else:
-                    return ctx[id]
+            case AleoRegister():
+                assert ctx is not None, f"Context can't be None when accessing register"
+                return ctx[id]
+                
+            case AleoIdentifier():
+                return self.programs[pid].mem[id]
                 
             case AleoRegisterAccess():
                 # potentially nested
                 # determine the base
-                base = None
-                if ctx is None or id.reg not in ctx.keys():
-                    # NOTE: check first layer, if not matched, proceed at ctx
-                    base = self.programs[pid].mem[id.reg]
-                else:
-                    base = ctx[id.reg]
+                assert ctx is not None, f"Context can't be None when accessing register"
+                base = ctx[id.reg]
                 # walk down the path
                 for p in id.accs:
                     match p:
@@ -106,6 +102,10 @@ class AleoEnvironment(AleoNode):
             case AleoLiteral():
                 return id
             
+            # FIXME: return something
+            case AleoOperandPreset():
+                return AleoUnsignedLiteral.from_json(["unsigned_literal", "6", "5", "4", "3", ["unsigned_type", "u32"]])
+            
             case _:
                 raise NotImplementedError(f"Unsupported type of id, got: {id} of type {type(id)}")
             
@@ -113,29 +113,22 @@ class AleoEnvironment(AleoNode):
     def mset(self, pid: str, id: Union[AleoRegister, AleoRegisterAccess], val: AleoLiteral, ctx: dict=None):
         match id:
 
-            case AleoRegister() | AleoIdentifier():
-                # flat
-                if ctx is None or id not in ctx.keys():
-                    self.programs[pid].mem[id] = val
-                else:
-                    ctx[id] = val
+            case AleoRegister():
+                assert ctx is not None, f"Context can't be None when accessing register"
+                ctx[id] = val
+
+            case AleoIdentifier():
+                self.programs[pid].mem[id] = val
             
             case AleoRegisterAccess() if len(id.accs) == 0:
-                # no accessor, same as single register
-                if ctx is None or id not in ctx.keys():
-                    self.programs[pid].mem[id.reg] = val
-                else:
-                    ctx[id.reg] = val
+                assert ctx is not None, f"Context can't be None when accessing register"
+                ctx[id.reg] = val
 
             case AleoRegisterAccess():
                 # potentially nested
                 # determine the last but one base
-                lbobase = None
-                if ctx is None or id.reg not in ctx.keys():
-                    # NOTE: check first layer, if not matched, proceed at ctx
-                    lbobase = self.programs[pid].mem[id.reg]
-                else:
-                    lbobase = ctx[id.reg]
+                assert ctx is not None, f"Context can't be None when accessing register"
+                lbobase = ctx[id.reg]
                 # walk down the path, with the last one left
                 for p in id.accs[:-1]:
                     match p:
@@ -274,9 +267,18 @@ class AleoStruct(AleoNode):
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
     
-    def instantiate(self, params: list):
+    def instantiate(self, params: Union[list, Callable]):
+        # NOTE: params can be a collection of values (used in interpretation)
+        #       or a value constructor (used for input construction)
         _keys = list(self.fields.keys())
-        return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        _vals = list(self.fields.values())
+        if isinstance(params, list):
+            assert len(_keys) == len(params), f"Numbers of parameters mismatch, expected: {len(_keys)}, got: {len(params)}"
+            return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        elif callable(params):
+            return { _keys[i] : params(_vals[i]) for i in range(len(_keys)) }
+        else:
+            raise NotImplementedError(f"Unsupported parameters for struct instantiation, got: {params}")
 
 class AleoMapping(AleoNode):
 
@@ -338,9 +340,18 @@ class AleoRecord(AleoNode):
         _fields = "\n".join([f"{_iden}{k} as {v};" for k,v in self.fields.items()])
         return f"{_id}\n{_fields}"
     
-    def instantiate(self, params: list):
+    def instantiate(self, params: Union[list, Callable]):
+        # NOTE: params can be a collection of values (used in interpretation)
+        #       or a value constructor (used for input construction)
         _keys = list(self.fields.keys())
-        return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        _vals = list(self.fields.values())
+        if isinstance(params, list):
+            assert len(_keys) == len(params), f"Numbers of parameters mismatch, expected: {len(_keys)}, got: {len(params)}"
+            return { _keys[i] : params[i]  for i in range(len(_keys)) }
+        elif callable(params):
+            return { _keys[i] : params(_vals[i]) for i in range(len(_keys)) }
+        else:
+            raise NotImplementedError(f"Unsupported parameters for record instantiation, got: {params}")
 
 class AleoFunction(AleoNode):
 

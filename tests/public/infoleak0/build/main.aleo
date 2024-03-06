@@ -46,7 +46,7 @@ mapping account_ex11:
 	value as u8.public;
 
 function vanguard_helper:
-    cast  true false true true true true true false true true true false true true true true true true true true true true true true true into r0 as [boolean; 25u32];
+    cast  true false true true true true true false true true true false true true true true true true true true true true true true false into r0 as [boolean; 25u32];
     output r0 as [boolean; 25u32].private;
 
 

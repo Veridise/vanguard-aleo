@@ -96,12 +96,12 @@ register_accessor : access_by_field | access_by_index ;
 access_by_field : DOT identifier ;
 access_by_index : LB unsigned_literal RB | LB DIGITS RB ;
 
-operand : literal | register_access | program_id | operand_preset ;
+operand : operand_preset | literal | register_access | program_id ;
 operand_preset : GROUP CC GEN | SELF DOT ( SIGNER | CALLER ) | BLOCK DOT HEIGHT ;
 tuple : identifier AS plaintext_type SC ;
 entry : identifier AS entry_type SC ;
 locator : program_id SLASH identifier ;
-cast_destination : register_type | locator | destination_group ;
+cast_destination : destination_group | register_type | locator ;
 destination_group : GROUP DOT ( X | Y ) ;
 
 unary_op : ABS ( DOT W )? | DOUBLE | INV | NEG | NOT | SQUARE | SQRT ;

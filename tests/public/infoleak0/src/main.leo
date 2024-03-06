@@ -291,8 +291,8 @@ program infoleak0.aleo {
 
     // record leak
     // compilable, runnable
-    // label: bad
-    const label_ex24: bool = true;
+    // label: good (actual input record has all public fields)
+    const label_ex24: bool = false;
     record rec_ex24 {
         public owner: address,
         public data: u8,

@@ -137,7 +137,7 @@ class AleoGet(AleoCommand):
         self.regacc = regacc
 
     def __str__(self):
-        return f"get {self.id} [{self.operand}] into {self.regacc};"
+        return f"get {self.id}[{self.operand}] into {self.regacc};"
     
 class AleoGetOrUse(AleoCommand):
 

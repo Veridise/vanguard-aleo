@@ -278,8 +278,8 @@ def serializedATN():
         5,1,0,0,732,733,3,196,98,0,733,153,1,0,0,0,734,735,5,3,0,0,735,736,
         3,84,42,0,736,737,5,4,0,0,737,742,1,0,0,0,738,739,5,3,0,0,739,740,
         5,114,0,0,740,742,5,4,0,0,741,734,1,0,0,0,741,738,1,0,0,0,742,155,
-        1,0,0,0,743,748,3,80,40,0,744,748,3,148,74,0,745,748,3,140,70,0,
-        746,748,3,158,79,0,747,743,1,0,0,0,747,744,1,0,0,0,747,745,1,0,0,
+        1,0,0,0,743,748,3,158,79,0,744,748,3,80,40,0,745,748,3,148,74,0,
+        746,748,3,140,70,0,747,743,1,0,0,0,747,744,1,0,0,0,747,745,1,0,0,
         0,747,746,1,0,0,0,748,157,1,0,0,0,749,750,5,17,0,0,750,751,5,6,0,
         0,751,759,5,18,0,0,752,753,5,19,0,0,753,754,5,1,0,0,754,759,7,2,
         0,0,755,756,5,22,0,0,756,757,5,1,0,0,757,759,5,23,0,0,758,749,1,
@@ -287,8 +287,8 @@ def serializedATN():
         196,98,0,761,762,5,9,0,0,762,763,3,126,63,0,763,764,5,5,0,0,764,
         161,1,0,0,0,765,766,3,196,98,0,766,767,5,9,0,0,767,768,3,134,67,
         0,768,769,5,5,0,0,769,163,1,0,0,0,770,771,3,140,70,0,771,772,5,2,
-        0,0,772,773,3,196,98,0,773,165,1,0,0,0,774,778,3,136,68,0,775,778,
-        3,164,82,0,776,778,3,168,84,0,777,774,1,0,0,0,777,775,1,0,0,0,777,
+        0,0,772,773,3,196,98,0,773,165,1,0,0,0,774,778,3,168,84,0,775,778,
+        3,136,68,0,776,778,3,164,82,0,777,774,1,0,0,0,777,775,1,0,0,0,777,
         776,1,0,0,0,778,167,1,0,0,0,779,780,5,17,0,0,780,781,5,1,0,0,781,
         782,7,3,0,0,782,169,1,0,0,0,783,786,5,42,0,0,784,785,5,1,0,0,785,
         787,5,24,0,0,786,784,1,0,0,0,786,787,1,0,0,0,787,795,1,0,0,0,788,
@@ -5997,6 +5997,10 @@ class AleoParser ( Parser ):
             super().__init__(parent, invokingState)
             self.parser = parser
 
+        def operand_preset(self):
+            return self.getTypedRuleContext(AleoParser.Operand_presetContext,0)
+
+
         def literal(self):
             return self.getTypedRuleContext(AleoParser.LiteralContext,0)
 
@@ -6007,10 +6011,6 @@ class AleoParser ( Parser ):
 
         def program_id(self):
             return self.getTypedRuleContext(AleoParser.Program_idContext,0)
-
-
-        def operand_preset(self):
-            return self.getTypedRuleContext(AleoParser.Operand_presetContext,0)
 
 
         def getRuleIndex(self):
@@ -6038,25 +6038,25 @@ class AleoParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 743
-                self.literal()
+                self.operand_preset()
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 744
-                self.register_access()
+                self.literal()
                 pass
 
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 745
-                self.program_id()
+                self.register_access()
                 pass
 
             elif la_ == 4:
                 self.enterOuterAlt(localctx, 4)
                 self.state = 746
-                self.operand_preset()
+                self.program_id()
                 pass
 
 
@@ -6346,16 +6346,16 @@ class AleoParser ( Parser ):
             super().__init__(parent, invokingState)
             self.parser = parser
 
+        def destination_group(self):
+            return self.getTypedRuleContext(AleoParser.Destination_groupContext,0)
+
+
         def register_type(self):
             return self.getTypedRuleContext(AleoParser.Register_typeContext,0)
 
 
         def locator(self):
             return self.getTypedRuleContext(AleoParser.LocatorContext,0)
-
-
-        def destination_group(self):
-            return self.getTypedRuleContext(AleoParser.Destination_groupContext,0)
 
 
         def getRuleIndex(self):
@@ -6383,19 +6383,19 @@ class AleoParser ( Parser ):
             if la_ == 1:
                 self.enterOuterAlt(localctx, 1)
                 self.state = 774
-                self.register_type()
+                self.destination_group()
                 pass
 
             elif la_ == 2:
                 self.enterOuterAlt(localctx, 2)
                 self.state = 775
-                self.locator()
+                self.register_type()
                 pass
 
             elif la_ == 3:
                 self.enterOuterAlt(localctx, 3)
                 self.state = 776
-                self.destination_group()
+                self.locator()
                 pass
 
 
