@@ -1,10 +1,10 @@
 // The 'divrd0' program.
 program divrd0.aleo {
     
-    transition vanguard_helper() -> [bool; 7] {
+    transition vanguard_helper() -> [bool; 8] {
         return [
             label_ex0, label_ex1, label_ex2, label_ex3,
-            label_ex4, label_ex5, label_ex6,
+            label_ex4, label_ex5, label_ex6, label_ex7,
         ];
     }
 
@@ -68,5 +68,11 @@ program divrd0.aleo {
         let a: u8 = 15u8;
         let b: u8 = a * 2u8 / 9u8;
         return b;
+    }
+
+    const label_ex7: bool = true;
+    transition ex7 () -> u8 {
+        let a: u8 = 15u8 / 2u8;
+        return a;
     }
 }

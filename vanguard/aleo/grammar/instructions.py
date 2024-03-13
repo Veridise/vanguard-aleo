@@ -418,6 +418,7 @@ class AleoAssert(AleoInstruction):
     def from_json(node):
         match node:
             case ["assert", op, *operands, ";"]:
+                assert len(operands) == 2, f"Unsupported number of operands, expected: 2, got: {len(operands)}"
                 _op = AleoAssertOp.from_json(op)
                 _operands = [AleoOperand.from_json(p) for p in operands]
                 return AleoAssert(_op, _operands)

@@ -28,7 +28,8 @@ The following libraries are required for running (different components of) the t
   - [pandas](https://pandas.pydata.org/)  (2.1.4+) for data analysis in test suite
   - [tabulate](https://github.com/astanin/python-tabulate) (0.9.0+) for result table rendering
 - <u>Leo (**7ac50d8**) for compiling and running all benchmarks enclosed</u>
-  - The tools is tested under this version, but newer version of Lao may also work.
+  - The tools is tested under this version, but newer version of Leo may also work.
+  - Older version may not work, as there are some breaking changes of Leo project structure.
 
 ## Usage
 
@@ -51,7 +52,7 @@ pip uninstall vanguard
 After installation, you can directly use the commandline executable `vanguard-aleo` provided:
 
 ```bash
-usage: vanguard-aleo [-h] [-b BUILD] [-p PID] [-f FIDS] [-d {divz,infoleak,rtcnst,unused}] [-v]
+usage: vanguard-aleo [-h] [-b BUILD] [-p PID] [-f FIDS] [-d {divrd,divz,downcast,emptyf,infoleak,magicv,rtcnst,susinst,unused}] [-v]
 
 options:
   -h, --help            show this help message and exit
@@ -59,7 +60,7 @@ options:
                         project build path, default: ./
   -p PID, --pid PID     program id, default: <project main entrance>
   -f FIDS, --fids FIDS  function ids (separated by comma, no space), default: <all functions of project>
-  -d {divz,infoleak,rtcnst,unused}, --detector {divz,infoleak,rtcnst,unused}
+  -d {divrd,divz,downcast,emptyf,infoleak,magicv,rtcnst,susinst,unused}, --detector {divrd,divz,downcast,emptyf,infoleak,magicv,rtcnst,susinst,unused}
                         detector to use, default: infoleak
   -v, --verbose         whether or not to return extra info, default: False
 ```
@@ -151,6 +152,11 @@ from vanguard.aleo.detectors import detector_infoleak
 from vanguard.aleo.detectors import detector_rtcnst
 from vanguard.aleo.detectors import detector_unused
 from vanguard.aleo.detectors import detector_divz
+from vanguard.aleo.detectors import detector_emptyf
+from vanguard.aleo.detectors import detector_magicv
+from vanguard.aleo.detectors import detector_susinst
+from vanguard.aleo.detectors import detector_divrd
+from vanguard.aleo.detectors import detector_downcast
 ...
 ```
 
@@ -170,6 +176,9 @@ You can find examples showing Leo/Aleo vulnerabilities with comments and annotat
 | rtcnst0/    | Returning constant            |
 | underflow0/ | Arithmetic underflow          |
 | unused0/    | Unused variable/signal        |
+| emptyf0/    | Empty functionality           |
+| magicv0/    | Magic variable                |
+| susinst0/   | Suspicious instruction        |
 
 ## Parser/Lexer Generation
 
