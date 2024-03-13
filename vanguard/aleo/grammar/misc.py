@@ -3,6 +3,27 @@ from enum import Enum
 
 # primitive type of all Aleo components
 class AleoNode:
+
+    @staticmethod
+    def visit(node, fn_pre=None, fn_post=None):
+        if fn_pre is not None: fn_pre(node)
+        if isinstance(node, AleoNode):
+            for p in vars(node).values():
+                AleoNode.visit(p, fn_pre=fn_pre, fn_post=fn_post)
+        elif isinstance(node, list):
+            for q in node:
+                AleoNode.visit(q, fn_pre=fn_pre, fn_post=fn_post)
+        elif isinstance(node, dict):
+            for k,v in node.items():
+                AleoNode.visit(v, fn_pre=fn_pre, fn_post=fn_post)
+        elif isinstance(node, tuple):
+            for p in node:
+                AleoNode.visit(p, fn_pre=fn_pre, fn_post=fn_post)
+        else:
+            # not interested
+            pass
+        if fn_post is not None: fn_post(node)
+
     # FIXME: prevent direct initialization that is compatible with Enum child class
     # NOTE: need both args and kwargs as child class also inherits Enum
     def __init__(self, *args, **kwargs):

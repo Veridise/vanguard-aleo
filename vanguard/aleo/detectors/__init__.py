@@ -2,3 +2,8 @@ from .divz import detector_divz
 from .infoleak import detector_infoleak
 from .rtcnst import detector_rtcnst
 from .unused import detector_unused
+from .emptyf import detector_emptyf
+from .magicv import detector_magicv
+from .susinst import detector_susinst
+from .divrd import detector_divrd
+from .downcast import detector_downcast
